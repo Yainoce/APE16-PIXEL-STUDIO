@@ -68,8 +68,8 @@ function updateNumericReadouts(){
   const values={
     refOpacity:`${$("refOpacity")?.value ?? 0}%`,
     refScale:`${$("refScale")?.value ?? 0}%`,
-    refX:`${$("refX")?.value ?? 0}%`,
-    refY:`${$("refY")?.value ?? 0}%`
+    refX:`${Number($("refX")?.value ?? 0) >= 0 ? "+" : ""}${$("refX")?.value ?? 0} px`,
+    refY:`${Number($("refY")?.value ?? 0) >= 0 ? "+" : ""}${$("refY")?.value ?? 0} px`
   };
 
   for(const [id,value] of Object.entries(values)){
@@ -83,8 +83,8 @@ function drawReference(ctx){
 
   const opacity=Number($("refOpacity").value)/100;
   const scale=Number($("refScale").value)/100;
-  const ox=Number($("refX").value)/100;
-  const oy=Number($("refY").value)/100;
+  const ox=Number($("refX").value);
+  const oy=Number($("refY").value);
 
   const w=state.reference.width;
   const h=state.reference.height;
@@ -92,8 +92,8 @@ function drawReference(ctx){
   const dw=w*fit*state.zoom;
   const dh=h*fit*state.zoom;
 
-  const px=(state.n*state.zoom-dw)/2 + ox*state.n*state.zoom;
-  const py=(state.n*state.zoom-dh)/2 + oy*state.n*state.zoom;
+  const px=(state.n*state.zoom-dw)/2 + ox*state.zoom;
+  const py=(state.n*state.zoom-dh)/2 + oy*state.zoom;
 
   ctx.save();
   ctx.globalAlpha=opacity;
@@ -601,8 +601,70 @@ $("importLayerFile").onchange=ev=>{
   image.src=URL.createObjectURL(file);
 };
 
-// Initialize the V2 guide/readout system.
+
+function setupV3ReferenceControls(){
+  const x=$("refX");
+  const y=$("refY");
+
+  if(x){
+    x.min=-16;
+    x.max=16;
+    x.step=1;
+    x.value=0;
+  }
+
+  if(y){
+    y.min=-16;
+    y.max=16;
+    y.step=1;
+    y.value=0;
+  }
+
+  const host = y?.parentElement?.parentElement || x?.parentElement?.parentElement;
+  if(host && !document.getElementById("refNudges")){
+    const wrap=document.createElement("div");
+    wrap.id="refNudges";
+    wrap.style.cssText="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center";
+
+    const label=document.createElement("span");
+    label.textContent="Reference nudge:";
+    label.style.cssText="color:#d4d4d8;font-size:13px;font-weight:700;margin-right:4px";
+    wrap.appendChild(label);
+
+    const buttons=[
+      ["←","x",-1],
+      ["→","x",1],
+      ["↑","y",-1],
+      ["↓","y",1]
+    ];
+
+    for(const [txt,axis,delta] of buttons){
+      const b=document.createElement("button");
+      b.type="button";
+      b.textContent=txt;
+      b.style.cssText="min-width:48px;padding:10px 14px;border-radius:10px;border:1px solid #44444b;background:#27272a;color:#fff;font-weight:800;font-size:18px";
+      b.addEventListener("click",()=>{
+        const target=axis==="x" ? x : y;
+        if(!target) return;
+        const min=Number(target.min);
+        const max=Number(target.max);
+        const next=clamp(Number(target.value)+delta,min,max);
+        target.value=String(next);
+        updateNumericReadouts();
+        draw();
+      });
+      wrap.appendChild(b);
+    }
+
+    host.appendChild(wrap);
+  }
+
+  updateNumericReadouts();
+}
+
+// Initialize the V3 guide/readout system.
 ensureNumericReadouts();
+setupV3ReferenceControls();
 reset(64);
 $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
