@@ -1793,7 +1793,14 @@ function applyTool(x,y,first=false){
     return;
   }
 
-  if(!state.reference || !state.genesisReferenceLocked){
+  // Recovery-loaded Genesis revisions may intentionally have no source reference image.
+  // Existing working artwork must remain editable (especially Eraser) without forcing
+  // the user to reload the original conversion reference. Approved masters remain
+  // protected by the lock check above.
+  const hasGenesisArtwork=state.cells.some(v=>v && v[3]!==0);
+  const recoveryEditable=hasGenesisArtwork && !state.approved && state.projectMeta.category==="Genesis";
+
+  if((!state.reference || !state.genesisReferenceLocked) && !recoveryEditable){
     showV4Notice(
       !state.reference
         ? "Load the Brown Genesis reference before drawing."
