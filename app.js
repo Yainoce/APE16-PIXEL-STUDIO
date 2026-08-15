@@ -1118,9 +1118,10 @@ function setupV5ProjectSystem(){
   const load=document.createElement("button");
   load.type="button";
   load.textContent="Load Project";
+  load.title="iPad Files picker shows all files; Pixel Studio validates the selected project after selection.";
   const loadInput=document.createElement("input");
   loadInput.type="file";
-  loadInput.accept=".json,.ape16.json,application/json";
+  loadInput.removeAttribute("accept");
   loadInput.hidden=true;
   load.addEventListener("click",()=>loadInput.click());
   loadInput.addEventListener("change",e=>{
@@ -2300,7 +2301,7 @@ function setupV6ProductionSystem(){
   <h3>ANCHORS</h3><div id="v6Anchors" class="v6row"></div><div class="v6warn" style="font-size:12px">Anchors are fixed Genesis landmarks. Trait art may use them for placement; it never moves Genesis.</div>
   <h3>COMPOSITE PREVIEW · Genesis − mask + trait</h3><canvas id="v6Canvas" width="512" height="512"></canvas>
   <div class="v6row"><button id="v6Validate" class="v6btn">Validate Trait</button><button id="v6Approve" class="v6btn">Approve + Lock Trait</button><button id="v6NewRev" class="v6btn">Create New Revision</button></div><div id="v6Status">Ready · create trait art and an occlusion mask.</div>
-  <h3>PROJECT / PRODUCTION EXPORT</h3><div class="v6row"><button id="v6Save" class="v6btn">Save V6 Trait Project</button><button id="v6Load" class="v6btn">Load V6 Trait Project</button><input id="v6LoadFile" type="file" accept=".json,.ape16" hidden><button id="v6Export64" class="v6btn">Export Named 64×64 Trait</button><button id="v6Export1024" class="v6btn">Export 1024 Composite</button><button id="v6Export4096" class="v6btn">Export 4096×4096 Composite</button></div>
+  <h3>PROJECT / PRODUCTION EXPORT</h3><div class="v6row"><button id="v6Save" class="v6btn">Save V6 Trait Project</button><button id="v6Load" class="v6btn">Load V6 Trait Project</button><input id="v6LoadFile" type="file" hidden><button id="v6Export64" class="v6btn">Export Named 64×64 Trait</button><button id="v6Export1024" class="v6btn">Export 1024 Composite</button><button id="v6Export4096" class="v6btn">Export 4096×4096 Composite</button></div>
   <div class="v6good" style="font-size:12px">4096 export = exact 64× nearest-neighbor enlargement of the 64×64 composite. No smoothing or invented pixels.</div>`;
   document.body.appendChild(host);
 
