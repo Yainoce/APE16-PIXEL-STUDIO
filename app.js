@@ -2571,7 +2571,7 @@ function setupV6ProductionSystem(){
   document.head.appendChild(css);
 
   const host=document.createElement("section"); host.id="v6Production";
-  host.innerHTML=`<h2>APE16 V6.4 · NFT TRAIT ARCHITECTURE</h2><div class="v6good">Production system · fresh high-contrast Genesis workflow</div>
+  host.innerHTML=`<h2>APE16 V6.5 · NFT TRAIT ARCHITECTURE</h2><div class="v6good">Production system · fresh high-contrast Genesis workflow</div>
   <h3>TRAIT PROJECT</h3><div class="v6row"><select id="v6Category" class="v6field"><option>Headwear</option><option>Eyes</option><option>Mouth</option><option>Clothing</option><option>Body</option><option>Accessory</option><option>Legendary</option></select><input id="v6Name" class="v6field" value="NewTrait" placeholder="Trait name"><input id="v6Rev" class="v6field" type="number" min="1" value="1" style="width:70px"></div>
   <h3>EDIT MODE</h3><div class="v6row"><button id="v6TraitTool" class="v6btn active">Trait Art</button><button id="v6MaskTool" class="v6btn">Occlusion Mask</button><button id="v6EraseTool" class="v6btn">Eraser</button><input id="v6Color" type="color" value="#000000"><button id="v6ClearTrait" class="v6btn">Clear Trait</button><button id="v6ClearMask" class="v6btn">Clear Mask</button></div>
   <h3>ANCHORS</h3><div id="v6Anchors" class="v6row"></div><div class="v6warn" style="font-size:12px">Anchors are fixed Genesis landmarks. Trait art may use them for placement; it never moves Genesis.</div>
@@ -2621,3 +2621,265 @@ setupV6ProductionSystem();
 $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 })();
+
+
+/* ============================================================
+   APE16 V6.5 · INTEGRATED PIXEL CONVERTER
+   Non-destructive reference -> flat 64×64 APE16 suggestion.
+   ============================================================ */
+(function setupIntegratedAPE16Converter(){
+  const $id=(id)=>document.getElementById(id);
+  if(document.getElementById("ape16IntegratedConverter")) return;
+
+  const conv={
+    image:null,
+    logical:document.createElement("canvas"),
+    ready:false,
+    palette:[]
+  };
+  conv.logical.width=conv.logical.height=64;
+  const cc=conv.logical.getContext("2d",{willReadFrequently:true});
+  cc.imageSmoothingEnabled=false;
+
+  function clamp(v){return Math.max(0,Math.min(255,Math.round(v)))}
+  function rgbDist(a,b){return (a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2}
+  function lum(p){return .2126*p[0]+.7152*p[1]+.0722*p[2]}
+
+  function contrastChannel(v,amount){
+    const c=(amount-5)*18;
+    const f=(259*(c+255))/(255*(259-c));
+    return clamp(f*(v-128)+128);
+  }
+
+  function quantilePalette(data,count,flat){
+    const pts=[];
+    for(let i=0;i<data.length;i+=4){
+      if(data[i+3]<128) continue;
+      pts.push([data[i],data[i+1],data[i+2]]);
+    }
+    if(!pts.length) return [[20,12,8]];
+    pts.sort((a,b)=>lum(a)-lum(b));
+    const pal=[];
+    for(let k=0;k<count;k++){
+      const idx=Math.floor((k/(count-1||1))*(pts.length-1));
+      let p=pts[idx].slice();
+      if(flat){
+        const avg=(p[0]+p[1]+p[2])/3;
+        const sat=1.22;
+        p=p.map(v=>clamp(avg+(v-avg)*sat));
+      }
+      pal.push(p);
+    }
+    // Hardest/darkest functional color for silhouette + facial structure.
+    pal[0]=pal[0].map(v=>clamp(v*.20));
+    return pal;
+  }
+
+  function drawPreview(){
+    const canvas=$id("ape16ConvPreview");
+    if(!canvas) return;
+    const x=canvas.getContext("2d");
+    x.clearRect(0,0,512,512);
+    x.imageSmoothingEnabled=false;
+    if(conv.ready) x.drawImage(conv.logical,0,0,512,512);
+  }
+
+  function convert(){
+    if(!conv.image){
+      $id("ape16ConvStatus").textContent="Load a converter reference image first.";
+      return;
+    }
+    const temp=document.createElement("canvas");
+    temp.width=temp.height=64;
+    const tx=temp.getContext("2d",{willReadFrequently:true});
+    tx.imageSmoothingEnabled=true;
+
+    const scale=Number($id("ape16ConvScale").value)/100;
+    const base=Math.min(64/conv.image.width,64/conv.image.height);
+    const w=conv.image.width*base*scale;
+    const h=conv.image.height*base*scale;
+    const ox=Number($id("ape16ConvX").value)||0;
+    const oy=Number($id("ape16ConvY").value)||0;
+    tx.clearRect(0,0,64,64);
+    tx.drawImage(conv.image,(64-w)/2+ox,(64-h)/2+oy,w,h);
+
+    const im=tx.getImageData(0,0,64,64);
+    const d=im.data;
+    const cutoff=Number($id("ape16ConvCutoff").value)||242;
+    const cont=Number($id("ape16ConvContrast").value)||7;
+
+    for(let i=0;i<d.length;i+=4){
+      if(d[i+3]<128 || (d[i]>=cutoff && d[i+1]>=cutoff && d[i+2]>=cutoff)){
+        d[i]=d[i+1]=d[i+2]=0; d[i+3]=0; continue;
+      }
+      d[i]=contrastChannel(d[i],cont);
+      d[i+1]=contrastChannel(d[i+1],cont);
+      d[i+2]=contrastChannel(d[i+2],cont);
+      d[i+3]=255;
+    }
+
+    const paletteCount=Number($id("ape16ConvPalette").value)||7;
+    const flat=$id("ape16ConvFlat").checked;
+    const pal=quantilePalette(d,paletteCount,flat);
+    conv.palette=pal.map(p=>[...p,255]);
+
+    // Quantize to functional flat palette.
+    for(let i=0;i<d.length;i+=4){
+      if(d[i+3]===0) continue;
+      const p=[d[i],d[i+1],d[i+2]];
+      let best=pal[0],bd=Infinity;
+      for(const q of pal){
+        const dd=rgbDist(p,q);
+        if(dd<bd){bd=dd;best=q}
+      }
+      d[i]=best[0]; d[i+1]=best[1]; d[i+2]=best[2]; d[i+3]=255;
+    }
+
+    // Strong exterior outline: only opaque cells adjacent to transparency.
+    if(Number($id("ape16ConvOutline").value)>=5){
+      const copy=new Uint8ClampedArray(d);
+      const alpha=(x,y)=>{
+        if(x<0||y<0||x>=64||y>=64) return 0;
+        return copy[(y*64+x)*4+3];
+      };
+      const dark=pal[0];
+      for(let y=0;y<64;y++) for(let x=0;x<64;x++){
+        const i=(y*64+x)*4;
+        if(copy[i+3]===0) continue;
+        if(alpha(x-1,y)===0||alpha(x+1,y)===0||alpha(x,y-1)===0||alpha(x,y+1)===0){
+          d[i]=dark[0];d[i+1]=dark[1];d[i+2]=dark[2];
+        }
+      }
+    }
+
+    cc.clearRect(0,0,64,64);
+    cc.putImageData(im,0,0);
+    conv.ready=true;
+    drawPreview();
+    $id("ape16ConvUseGenesis").disabled=false;
+    $id("ape16ConvExport64").disabled=false;
+    $id("ape16ConvStatus").textContent=
+      `Conversion ready · ${paletteCount} flat colors · review before using as Genesis`;
+  }
+
+  function downloadCanvas(canvas,size,name){
+    const out=document.createElement("canvas");
+    out.width=out.height=size;
+    const x=out.getContext("2d");
+    x.imageSmoothingEnabled=false;
+    x.clearRect(0,0,size,size);
+    x.drawImage(canvas,0,0,size,size);
+    out.toBlob(blob=>{
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+    },"image/png");
+  }
+
+  function useAsGenesis(){
+    if(!conv.ready) return;
+    if(state.approved){
+      alert("The currently loaded Genesis is approved. Create/open a fresh working Genesis project before replacing it.");
+      return;
+    }
+    const data=cc.getImageData(0,0,64,64).data;
+    state.n=64;
+    state.cells=new Array(4096).fill(null);
+    for(let i=0;i<4096;i++){
+      const a=data[i*4+3];
+      if(a===0) continue;
+      state.cells[i]=[data[i*4],data[i*4+1],data[i*4+2],a];
+    }
+    state.undo=[];
+    state.redo=[];
+    state.genesisPalette=conv.palette.map(c=>[...c]);
+    state.paletteLocked=false;
+    state.suggestion=[];
+    state.suggestionPalette=[];
+    state.showSuggestion=false;
+    if(state.projectMeta){
+      state.projectMeta.projectName="APE16";
+      state.projectMeta.category="Genesis";
+      state.projectMeta.traitName="Brown";
+      state.projectMeta.revision=1;
+    }
+    if(typeof applyProjectMetaToUI==="function") applyProjectMetaToUI();
+    if(typeof renderV5GenesisPalette==="function") renderV5GenesisPalette();
+    if(typeof resize==="function") resize();
+    if(typeof draw==="function") draw();
+    if(typeof validateGenesis==="function") validateGenesis(false);
+    $id("ape16ConvStatus").textContent=
+      "Conversion copied into editable Genesis · review/refine before palette lock or approval.";
+  }
+
+  const section=document.createElement("section");
+  section.id="ape16IntegratedConverter";
+  section.innerHTML=`
+    <h2>APE16 V6.5 · INTEGRATED PIXEL CONVERTER</h2>
+    <p style="color:#aaa;line-height:1.45">
+      Reference → flat high-contrast 64×64 APE16 starting art. Conversion is non-destructive until you explicitly choose <b>Use Conversion as Genesis</b>.
+    </p>
+    <div style="display:grid;gap:10px">
+      <input id="ape16ConvFile" type="file" accept="image/*">
+      <label>Scale <input id="ape16ConvScale" type="range" min="20" max="140" value="85"> <span id="ape16ConvScaleOut">85%</span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <label>X <input id="ape16ConvX" type="number" value="0" style="width:70px"></label>
+        <label>Y <input id="ape16ConvY" type="number" value="0" style="width:70px"></label>
+      </div>
+      <label>Simplification <input id="ape16ConvSimplify" type="range" min="1" max="10" value="8"> <span id="ape16ConvSimplifyOut">8</span></label>
+      <label>Contrast <input id="ape16ConvContrast" type="range" min="0" max="10" value="8"> <span id="ape16ConvContrastOut">8</span></label>
+      <label>Outline strength <input id="ape16ConvOutline" type="range" min="0" max="10" value="8"> <span id="ape16ConvOutlineOut">8</span></label>
+      <label>Palette size <input id="ape16ConvPalette" type="range" min="5" max="9" value="7"> <span id="ape16ConvPaletteOut">7</span></label>
+      <label>White cutoff <input id="ape16ConvCutoff" type="range" min="220" max="255" value="242"> <span id="ape16ConvCutoffOut">242</span></label>
+      <label><input id="ape16ConvFlat" type="checkbox" checked> Flat-color mode — suppress unnecessary shading</label>
+      <button id="ape16ConvConvert" type="button" style="font-weight:900">CONVERT TO APE16</button>
+    </div>
+    <div style="margin-top:14px;max-width:512px;background:
+      linear-gradient(45deg,#bbb 25%,transparent 25%),
+      linear-gradient(-45deg,#bbb 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#bbb 75%),
+      linear-gradient(-45deg,transparent 75%,#bbb 75%);
+      background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:white">
+      <canvas id="ape16ConvPreview" width="512" height="512" style="display:block;width:100%;image-rendering:pixelated"></canvas>
+    </div>
+    <p id="ape16ConvStatus" style="color:#e3bf68">Load a converter reference image.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="ape16ConvUseGenesis" type="button" disabled>Use Conversion as Genesis</button>
+      <button id="ape16ConvExport64" type="button" disabled>Export Conversion 64×64</button>
+    </div>
+    <p style="color:#9ee6aa;font-size:12px;line-height:1.45">
+      64×64 logical source · solid RGBA cells · transparent background · no anti-aliasing · nearest-neighbor production exports remain handled by Pixel Studio.
+    </p>
+  `;
+
+  // Put converter before the existing assisted Genesis section when possible.
+  const assisted=[...document.querySelectorAll("section")].find(s=>s.textContent.includes("ASSISTED GENESIS CONSTRUCTION"));
+  if(assisted) assisted.parentNode.insertBefore(section,assisted);
+  else document.querySelector("main")?.appendChild(section);
+
+  $id("ape16ConvFile").addEventListener("change",e=>{
+    const f=e.target.files[0]; if(!f)return;
+    const url=URL.createObjectURL(f);
+    const image=new Image();
+    image.onload=()=>{
+      URL.revokeObjectURL(url);
+      conv.image=image;
+      $id("ape16ConvStatus").textContent="Converter reference loaded · adjust controls or convert.";
+    };
+    image.src=url;
+  });
+
+  ["Scale","Simplify","Contrast","Outline","Palette","Cutoff"].forEach(name=>{
+    const input=$id("ape16Conv"+name), out=$id("ape16Conv"+name+"Out");
+    if(input&&out) input.addEventListener("input",()=>out.textContent=input.value+(name==="Scale"?"%":""));
+  });
+
+  $id("ape16ConvConvert").addEventListener("click",convert);
+  $id("ape16ConvUseGenesis").addEventListener("click",useAsGenesis);
+  $id("ape16ConvExport64").addEventListener("click",()=>downloadCanvas(conv.logical,64,"APE16_Converted_64x64.png"));
+})();
+
