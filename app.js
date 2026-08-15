@@ -966,6 +966,25 @@ function exportNamed1024Preview(){
   updateV5Status(`Exported preview · ${name}`);
 }
 
+function exportNamed4096Preview(){
+  syncProjectMetaFromUI();
+  const validation=validateGenesis(false);
+  if(!validation.pass){
+    showV4Notice("Fix Genesis hard-rule failures before production export.");
+    return;
+  }
+  const src=logicalCanvas();
+  const out=document.createElement("canvas");
+  out.width=4096; out.height=4096;
+  const ctx=out.getContext("2d");
+  ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,4096,4096);
+  ctx.drawImage(src,0,0,4096,4096);
+  const name=`${currentProjectBaseName()}_4096x4096.png`;
+  downloadCanvas(out,name);
+  updateV5Status(`Exported 4K pixel-perfect preview · ${name}`);
+}
+
 function approveMaster(){
   const validation=validateGenesis(true);
 
@@ -1272,7 +1291,7 @@ function setupV5ProjectSystem(){
 
   const restorePng=document.createElement("button");
   restorePng.type="button";
-  restorePng.textContent="Restore Approved Brown from 64×64 PNG";
+  restorePng.textContent="Import Existing 64×64 Genesis (optional)";
   const restorePngInput=document.createElement("input");
   restorePngInput.type="file";
   restorePngInput.accept="image/png";
@@ -1299,6 +1318,11 @@ function setupV5ProjectSystem(){
   exportPreview.textContent="Export Named 1024 Preview";
   exportPreview.addEventListener("click",exportNamed1024Preview);
 
+  const export4096=document.createElement("button");
+  export4096.type="button";
+  export4096.textContent="Export Named 4096×4096";
+  export4096.addEventListener("click",exportNamed4096Preview);
+
   const haloPreview=document.createElement("button");
   haloPreview.type="button";
   haloPreview.textContent="Preview Exterior Halo";
@@ -1324,7 +1348,7 @@ function setupV5ProjectSystem(){
   revision.textContent="Create New Revision";
   revision.addEventListener("click",createRevisionFromApproved);
 
-  for(const b of [save,load,restorePng,pasteJson,exportMaster,exportPreview,haloPreview,haloApply,haloCancel,approve,revision]){
+  for(const b of [save,load,restorePng,pasteJson,exportMaster,exportPreview,export4096,haloPreview,haloApply,haloCancel,approve,revision]){
     b.style.cssText=
       "padding:9px 11px;border-radius:9px;border:1px solid #444;background:#27272a;color:#fff;font-weight:750";
   }
@@ -1398,11 +1422,11 @@ function setupV5ConstructionAssistant(){
   paletteSize.style.cssText=
     "background:#111;color:#fff;border:1px solid #444;border-radius:8px;padding:8px";
 
-  for(const n of [6,8,10,12,16]){
+  for(const n of [6,8,9,10,12,16]){
     const o=document.createElement("option");
     o.value=String(n);
     o.textContent=`${n} colors`;
-    if(n===8) o.selected=true;
+    if(n===9) o.selected=true;
     paletteSize.appendChild(o);
   }
 
@@ -2547,7 +2571,7 @@ function setupV6ProductionSystem(){
   document.head.appendChild(css);
 
   const host=document.createElement("section"); host.id="v6Production";
-  host.innerHTML=`<h2>APE16 V6.2 · NFT TRAIT ARCHITECTURE</h2><div class="v6good">Production system · approved Genesis remains untouched</div>
+  host.innerHTML=`<h2>APE16 V6.4 · NFT TRAIT ARCHITECTURE</h2><div class="v6good">Production system · fresh high-contrast Genesis workflow</div>
   <h3>TRAIT PROJECT</h3><div class="v6row"><select id="v6Category" class="v6field"><option>Headwear</option><option>Eyes</option><option>Mouth</option><option>Clothing</option><option>Body</option><option>Accessory</option><option>Legendary</option></select><input id="v6Name" class="v6field" value="NewTrait" placeholder="Trait name"><input id="v6Rev" class="v6field" type="number" min="1" value="1" style="width:70px"></div>
   <h3>EDIT MODE</h3><div class="v6row"><button id="v6TraitTool" class="v6btn active">Trait Art</button><button id="v6MaskTool" class="v6btn">Occlusion Mask</button><button id="v6EraseTool" class="v6btn">Eraser</button><input id="v6Color" type="color" value="#000000"><button id="v6ClearTrait" class="v6btn">Clear Trait</button><button id="v6ClearMask" class="v6btn">Clear Mask</button></div>
   <h3>ANCHORS</h3><div id="v6Anchors" class="v6row"></div><div class="v6warn" style="font-size:12px">Anchors are fixed Genesis landmarks. Trait art may use them for placement; it never moves Genesis.</div>
