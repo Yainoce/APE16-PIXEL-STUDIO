@@ -27,7 +27,8 @@ const state={
     revision:1,
     projectFormatVersion:1
   },
-  approved:false
+  approved:false,
+  haloPreview:[]
 };
 
 const idx=(x,y)=>y*state.n+x;
@@ -1000,6 +1001,7 @@ function createRevisionFromApproved(){
   if(!ok) return;
 
   state.approved=false;
+  state.haloPreview=[];
   state.projectMeta.revision=Math.max(1,Number(state.projectMeta.revision)||1)+1;
   applyProjectMetaToUI();
   updateV5Status(
@@ -1297,6 +1299,21 @@ function setupV5ProjectSystem(){
   exportPreview.textContent="Export Named 1024 Preview";
   exportPreview.addEventListener("click",exportNamed1024Preview);
 
+  const haloPreview=document.createElement("button");
+  haloPreview.type="button";
+  haloPreview.textContent="Preview Exterior Halo";
+  haloPreview.addEventListener("click",previewExteriorHalo);
+
+  const haloApply=document.createElement("button");
+  haloApply.type="button";
+  haloApply.textContent="Apply Halo Cleanup";
+  haloApply.addEventListener("click",applyExteriorHaloCleanup);
+
+  const haloCancel=document.createElement("button");
+  haloCancel.type="button";
+  haloCancel.textContent="Clear Halo Preview";
+  haloCancel.addEventListener("click",cancelExteriorHaloPreview);
+
   const approve=document.createElement("button");
   approve.type="button";
   approve.textContent="Approve + Lock Master";
@@ -1307,7 +1324,7 @@ function setupV5ProjectSystem(){
   revision.textContent="Create New Revision";
   revision.addEventListener("click",createRevisionFromApproved);
 
-  for(const b of [save,load,restorePng,pasteJson,exportMaster,exportPreview,approve,revision]){
+  for(const b of [save,load,restorePng,pasteJson,exportMaster,exportPreview,haloPreview,haloApply,haloCancel,approve,revision]){
     b.style.cssText=
       "padding:9px 11px;border-radius:9px;border:1px solid #444;background:#27272a;color:#fff;font-weight:750";
   }
@@ -1325,6 +1342,9 @@ function setupV5ProjectSystem(){
     pasteJson,
     exportMaster,
     exportPreview,
+    haloPreview,
+    haloApply,
+    haloCancel,
     approve,
     revision
   );
@@ -1613,8 +1633,73 @@ function draw(){
   drawReference(ctx);
   drawSuggestion(ctx);
   drawPixelCells(ctx);
+  drawHaloPreview(ctx);
   drawGuides(ctx);
   drawSelection(ctx);
+}
+
+
+function exteriorHaloCandidates(){
+  const out=[];
+  const n=state.n;
+  const isEmpty=(x,y)=>x<0||y<0||x>=n||y>=n||!state.cells[idx(x,y)]||state.cells[idx(x,y)][3]===0;
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++){
+    const v=state.cells[idx(x,y)];
+    if(!v||v[3]===0) continue;
+    // Only neutral/light gray pixels can be auto-flagged. Brown outline and colored art are never candidates.
+    const max=Math.max(v[0],v[1],v[2]), min=Math.min(v[0],v[1],v[2]);
+    const neutral=(max-min)<=14;
+    const light=max>=125;
+    if(!neutral||!light) continue;
+    let touchesOutside=false;
+    for(let dy=-1;dy<=1&&!touchesOutside;dy++) for(let dx=-1;dx<=1;dx++){
+      if(dx===0&&dy===0) continue;
+      if(isEmpty(x+dx,y+dy)){touchesOutside=true;break;}
+    }
+    if(touchesOutside) out.push(idx(x,y));
+  }
+  return out;
+}
+
+function drawHaloPreview(ctx){
+  if(!state.haloPreview?.length) return;
+  ctx.save();
+  ctx.fillStyle='rgba(255,0,255,0.62)';
+  for(const i of state.haloPreview){
+    const x=i%state.n, y=Math.floor(i/state.n);
+    ctx.fillRect(x*state.zoom,y*state.zoom,state.zoom,state.zoom);
+  }
+  ctx.restore();
+}
+
+function previewExteriorHalo(){
+  if(state.approved){showV4Notice('Approved master is locked. Create a revision first.');return;}
+  state.haloPreview=exteriorHaloCandidates();
+  draw();
+  updateV5Status(`Exterior halo preview · ${state.haloPreview.length} candidate cell${state.haloPreview.length===1?'':'s'} highlighted magenta · nothing changed`);
+  showV4Notice(state.haloPreview.length
+    ? `Preview only: ${state.haloPreview.length} exterior neutral-gray cells are highlighted magenta. No artwork has changed. Inspect the full silhouette before applying.`
+    : 'No exterior neutral-gray halo candidates were found. Nothing changed.');
+}
+
+function cancelExteriorHaloPreview(){
+  state.haloPreview=[];
+  draw();
+  updateV5Status('Exterior halo preview cleared · artwork unchanged');
+}
+
+function applyExteriorHaloCleanup(){
+  if(state.approved){showV4Notice('Approved master is locked. Create a revision first.');return;}
+  if(!state.haloPreview?.length){showV4Notice('Preview Exterior Halo first. Nothing was changed.');return;}
+  const count=state.haloPreview.length;
+  const ok=confirm(`Remove the ${count} magenta-highlighted exterior halo cells from this working revision? You can still Undo afterward.`);
+  if(!ok) return;
+  saveUndo();
+  for(const i of state.haloPreview) state.cells[i]=null;
+  state.haloPreview=[];
+  draw();
+  validateGenesis(false);
+  updateV5Status(`Exterior halo cleanup applied · ${count} cells removed · review before approval`);
 }
 
 function reset(n){
