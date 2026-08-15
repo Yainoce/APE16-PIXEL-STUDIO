@@ -10,7 +10,8 @@ const state={
   redo:[],
   tool:"pencil",
   drawing:false,
-  reference:null
+  reference:null,
+  genesisReferenceLocked:false
 };
 
 const idx=(x,y)=>y*state.n+x;
@@ -293,6 +294,15 @@ function pointerCell(ev){
 }
 
 function applyTool(x,y,first=false){
+  if(!state.reference || !state.genesisReferenceLocked){
+    showV4Notice(
+      !state.reference
+        ? "Load the Brown Genesis reference before drawing."
+        : "Lock the Genesis reference before drawing."
+    );
+    return;
+  }
+
   x=clamp(x,0,state.n-1);
   y=clamp(y,0,state.n-1);
 
@@ -398,19 +408,17 @@ $("clearBtn").onclick=()=>{
 };
 
 $("resolution").onchange=ev=>{
-  const n=Number(ev.target.value);
-
-  if(
-    state.cells.some(Boolean) &&
-    !confirm("Changing resolution clears the layer. Continue?")
-  ){
-    ev.target.value=state.n;
+  if(Number(ev.target.value)!==64){
+    ev.target.value="64";
+    showV4Notice("APE16 master resolution is locked to 64×64.");
     return;
   }
 
-  reset(n);
-  $("coord").textContent=
-    `x: — y: —  |  legal range: 0–${state.n-1}`;
+  if(state.n!==64){
+    reset(64);
+  }
+
+  $("coord").textContent="x: — y: —  |  legal range: 0–63";
 };
 
 $("zoom").oninput=ev=>{
@@ -441,6 +449,20 @@ $("referenceFile").onchange=ev=>{
 
   image.onload=()=>{
     state.reference=image;
+
+    // The APE16 Genesis placement standard is always 85%, X 0, Y 0.
+    $("refScale").value="85";
+    $("refX").value="0";
+    $("refY").value="0";
+
+    const saved=loadV4LockState();
+
+    if(saved?.locked){
+      state.genesisReferenceLocked=true;
+    }
+
+    applyV4LockUI();
+    updateNumericReadouts();
     draw();
     URL.revokeObjectURL(image.src);
   };
@@ -513,6 +535,11 @@ function downloadCanvas(c,name){
 }
 
 $("exportMasterBtn").onclick=()=>{
+  if(!state.reference || !state.genesisReferenceLocked){
+    showV4Notice("Lock the Genesis reference before exporting the 64×64 master.");
+    return;
+  }
+
   downloadCanvas(
     logicalCanvas(),
     `APE16_${state.n}x${state.n}.png`
@@ -520,6 +547,11 @@ $("exportMasterBtn").onclick=()=>{
 };
 
 $("export1024Btn").onclick=()=>{
+  if(!state.reference || !state.genesisReferenceLocked){
+    showV4Notice("Lock the Genesis reference before exporting the preview.");
+    return;
+  }
+
   const source=logicalCanvas();
   const output=document.createElement("canvas");
 
@@ -644,6 +676,11 @@ function setupV3ReferenceControls(){
       b.textContent=txt;
       b.style.cssText="min-width:48px;padding:10px 14px;border-radius:10px;border:1px solid #44444b;background:#27272a;color:#fff;font-weight:800;font-size:18px";
       b.addEventListener("click",()=>{
+        if(state.genesisReferenceLocked){
+          showV4Notice("Genesis reference is locked. Unlock it before repositioning.");
+          return;
+        }
+
         const target=axis==="x" ? x : y;
         if(!target) return;
         const min=Number(target.min);
@@ -662,10 +699,273 @@ function setupV3ReferenceControls(){
   updateNumericReadouts();
 }
 
-// Initialize the V3 guide/readout system.
+
+const V4_LOCK_STORAGE_KEY="APE16_GENESIS_REFERENCE_LOCK_V4";
+
+function showV4Notice(message){
+  let notice=document.getElementById("v4Notice");
+
+  if(!notice){
+    notice=document.createElement("div");
+    notice.id="v4Notice";
+    notice.style.cssText=
+      "position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:9999;"+
+      "max-width:88vw;padding:11px 15px;border-radius:11px;background:#111;color:#fff;"+
+      "border:1px solid #555;font-weight:700;font-size:13px;box-shadow:0 8px 30px rgba(0,0,0,.45)";
+    document.body.appendChild(notice);
+  }
+
+  notice.textContent=message;
+  notice.hidden=false;
+
+  clearTimeout(showV4Notice._timer);
+  showV4Notice._timer=setTimeout(()=>{
+    notice.hidden=true;
+  },2500);
+}
+
+function saveV4LockState(){
+  try{
+    localStorage.setItem(
+      V4_LOCK_STORAGE_KEY,
+      JSON.stringify({
+        locked:state.genesisReferenceLocked,
+        resolution:64,
+        scale:85,
+        x:0,
+        y:0
+      })
+    );
+  }catch(error){
+    console.warn("Could not save Genesis lock state.",error);
+  }
+}
+
+function loadV4LockState(){
+  try{
+    const raw=localStorage.getItem(V4_LOCK_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(error){
+    console.warn("Could not read Genesis lock state.",error);
+    return null;
+  }
+}
+
+function setReferencePositionStandard(){
+  $("resolution").value="64";
+  $("refScale").value="85";
+  $("refX").value="0";
+  $("refY").value="0";
+  state.n=64;
+  updateNumericReadouts();
+}
+
+function applyV4LockUI(){
+  const locked=state.genesisReferenceLocked;
+
+  setReferencePositionStandard();
+
+  // Canvas resolution is an APE16 hard rule in V4.
+  $("resolution").disabled=true;
+
+  // Opacity remains adjustable while locked; position does not.
+  $("refScale").disabled=locked;
+  $("refX").disabled=locked;
+  $("refY").disabled=locked;
+
+  const nudge=document.getElementById("refNudges");
+  if(nudge){
+    nudge.querySelectorAll("button").forEach(button=>{
+      button.disabled=locked;
+      button.style.opacity=locked?".38":"1";
+    });
+  }
+
+  const lockButton=document.getElementById("lockGenesisReferenceBtn");
+  const unlockButton=document.getElementById("unlockGenesisReferenceBtn");
+  const badge=document.getElementById("genesisLockBadge");
+
+  if(lockButton) lockButton.disabled=locked || !state.reference;
+  if(unlockButton) unlockButton.disabled=!locked;
+
+  if(badge){
+    badge.textContent=locked
+      ? "🔒 GENESIS REFERENCE LOCKED · 64×64 · 85% · X 0 · Y 0"
+      : "🔓 GENESIS REFERENCE NOT LOCKED";
+
+    badge.style.background=locked ? "#17311f" : "#311717";
+    badge.style.borderColor=locked ? "#315f3e" : "#6b3030";
+  }
+
+  updateV4RulePanel();
+}
+
+function lockGenesisReference(){
+  if(!state.reference){
+    showV4Notice("Load the Brown Genesis reference first.");
+    return;
+  }
+
+  setReferencePositionStandard();
+  state.genesisReferenceLocked=true;
+  saveV4LockState();
+  applyV4LockUI();
+  draw();
+
+  showV4Notice("Genesis reference locked: 64×64 · 85% · X 0 · Y 0.");
+}
+
+function unlockGenesisReference(){
+  if(!state.genesisReferenceLocked) return;
+
+  if(state.cells.some(Boolean)){
+    const ok=confirm(
+      "Unlocking the Genesis reference invalidates any pixels drawn against its current placement. "+
+      "Unlock and CLEAR the current pixel layer?"
+    );
+
+    if(!ok) return;
+
+    state.cells=empty(64);
+    state.undo=[];
+    state.redo=[];
+  }
+
+  state.genesisReferenceLocked=false;
+  saveV4LockState();
+  applyV4LockUI();
+  draw();
+
+  showV4Notice("Genesis reference unlocked. Drawing is disabled until it is locked again.");
+}
+
+function updateV4RulePanel(){
+  const panel=document.getElementById("v4RulePanel");
+  if(!panel) return;
+
+  const rules=[
+    ["Master canvas","64×64 LOCKED",true],
+    ["Atomic pixel","1 cell = 1 solid RGBA color or transparent",true],
+    ["Anti-aliasing","Impossible in drawing engine",true],
+    ["Fractional placement","Not allowed",true],
+    ["Reference placement","85% · X 0 · Y 0",state.genesisReferenceLocked],
+    ["Reference position lock",state.genesisReferenceLocked ? "LOCKED" : "NOT LOCKED",state.genesisReferenceLocked],
+    ["Reference opacity","Adjustable while locked",true],
+    ["Export size","Logical 64×64 + nearest-neighbor 1024 preview",true]
+  ];
+
+  panel.innerHTML="";
+
+  for(const [name,value,ok] of rules){
+    const row=document.createElement("div");
+    row.style.cssText=
+      "display:grid;grid-template-columns:minmax(120px,.8fr) minmax(0,1.5fr);gap:10px;"+
+      "padding:7px 0;border-bottom:1px solid #2d2d31;font-size:13px";
+
+    const left=document.createElement("strong");
+    left.textContent=name;
+
+    const right=document.createElement("span");
+    right.textContent=(ok ? "✓ " : "⚠ ")+value;
+    right.style.color=ok ? "#9ee6aa" : "#ffb1b1";
+
+    row.append(left,right);
+    panel.appendChild(row);
+  }
+}
+
+function setupV4RuleEnforcement(){
+  // V4 is the production APE16 Genesis mode: resolution is no longer selectable.
+  state.n=64;
+  $("resolution").value="64";
+  $("resolution").disabled=true;
+
+  // The approved reference placement becomes the default immediately.
+  $("refScale").value="85";
+  $("refX").value="0";
+  $("refY").value="0";
+
+  const referenceSection=$("referenceFile")?.closest("section");
+
+  if(referenceSection && !document.getElementById("genesisLockControls")){
+    const controls=document.createElement("div");
+    controls.id="genesisLockControls";
+    controls.style.cssText=
+      "margin-top:14px;padding:12px;border:1px solid #3a3a40;border-radius:12px;background:#101012";
+
+    const badge=document.createElement("div");
+    badge.id="genesisLockBadge";
+    badge.style.cssText=
+      "padding:9px 11px;border:1px solid #6b3030;border-radius:9px;background:#311717;"+
+      "font-size:13px;font-weight:800;margin-bottom:10px";
+    controls.appendChild(badge);
+
+    const buttons=document.createElement("div");
+    buttons.style.cssText="display:flex;gap:8px;flex-wrap:wrap";
+
+    const lock=document.createElement("button");
+    lock.id="lockGenesisReferenceBtn";
+    lock.type="button";
+    lock.textContent="🔒 LOCK GENESIS REFERENCE";
+    lock.style.cssText=
+      "padding:11px 14px;border-radius:10px;border:1px solid #555;background:#f4f4f5;"+
+      "color:#111;font-weight:900";
+    lock.addEventListener("click",lockGenesisReference);
+
+    const unlock=document.createElement("button");
+    unlock.id="unlockGenesisReferenceBtn";
+    unlock.type="button";
+    unlock.textContent="Unlock Reference";
+    unlock.style.cssText=
+      "padding:11px 14px;border-radius:10px;border:1px solid #555;background:#27272a;"+
+      "color:#fff;font-weight:750";
+    unlock.addEventListener("click",unlockGenesisReference);
+
+    buttons.append(lock,unlock);
+    controls.appendChild(buttons);
+
+    const note=document.createElement("p");
+    note.textContent=
+      "Hard rule: Genesis drawing is disabled until the Brown reference is loaded and locked at 64×64 / 85% / X 0 / Y 0. Opacity remains adjustable.";
+    note.style.cssText="color:#a1a1aa;font-size:12px;line-height:1.45;margin:10px 0 0";
+    controls.appendChild(note);
+
+    referenceSection.appendChild(controls);
+  }
+
+  const toolsSection=$("undoBtn")?.closest("section");
+
+  if(toolsSection && !document.getElementById("v4RulesWrap")){
+    const wrap=document.createElement("div");
+    wrap.id="v4RulesWrap";
+    wrap.style.cssText=
+      "margin-top:14px;padding:12px;border:1px solid #3a3a40;border-radius:12px;background:#101012";
+
+    const title=document.createElement("div");
+    title.textContent="APE16 V4 HARD RULES";
+    title.style.cssText="font-weight:900;font-size:13px;margin-bottom:6px";
+
+    const panel=document.createElement("div");
+    panel.id="v4RulePanel";
+
+    wrap.append(title,panel);
+    toolsSection.appendChild(wrap);
+  }
+
+  const saved=loadV4LockState();
+
+  // Preserve a prior explicit lock decision across refreshes.
+  state.genesisReferenceLocked=Boolean(saved?.locked);
+
+  applyV4LockUI();
+  updateNumericReadouts();
+}
+
+// Initialize the V4 rule-enforcement system.
 ensureNumericReadouts();
 setupV3ReferenceControls();
 reset(64);
+setupV4RuleEnforcement();
 $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 })();
