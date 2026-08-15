@@ -648,11 +648,11 @@ function validateGenesis(showNotice=true){
     issues.push("Master canvas is not 64×64.");
   }
 
-  if(!state.reference){
+  if(!state.reference && !state.approved){
     issues.push("Brown Genesis reference is not loaded.");
   }
 
-  if(!state.genesisReferenceLocked){
+  if(!state.genesisReferenceLocked && !state.approved){
     issues.push("Genesis reference is not locked.");
   }
 
@@ -918,56 +918,7 @@ function loadEditableProjectFile(file){
 
   reader.onload=()=>{
     try{
-      const data=JSON.parse(String(reader.result||""));
-      validateProjectPayload(data);
-
-      state.n=64;
-      state.cells=data.canvas.cells.map(v=>v ? [...v] : null);
-      state.undo=[];
-      state.redo=[];
-
-      state.projectMeta.projectName=data.meta?.projectName||"APE16";
-      state.projectMeta.category=data.meta?.category||"Genesis";
-      state.projectMeta.traitName=data.meta?.traitName||"Brown";
-      state.projectMeta.revision=Math.max(1,Number(data.meta?.revision)||1);
-
-      state.approved=Boolean(data.approved);
-      state.genesisReferenceLocked=Boolean(data.reference?.locked);
-
-      $("refOpacity").value=String(
-        Math.max(0,Math.min(100,Number(data.reference?.opacity ?? 45)))
-      );
-      $("refScale").value="85";
-      $("refX").value="0";
-      $("refY").value="0";
-
-      state.genesisPalette=Array.isArray(data.palette?.colors)
-        ? data.palette.colors.map(c=>[...c])
-        : [];
-      state.paletteLocked=Boolean(data.palette?.locked);
-
-      state.showSuggestion=Boolean(data.suggestion?.visible);
-      state.suggestionOpacity=Number(data.suggestion?.opacity ?? .55);
-      state.suggestionPalette=Array.isArray(data.suggestion?.palette)
-        ? data.suggestion.palette.map(c=>[...c])
-        : [];
-      state.suggestion=Array.isArray(data.suggestion?.cells) &&
-        data.suggestion.cells.length===4096
-          ? data.suggestion.cells.map(v=>v ? [...v] : null)
-          : [];
-
-      applyProjectMetaToUI();
-      applyV4LockUI();
-      renderV5GenesisPalette();
-      renderV5SuggestionPalette();
-      updateNumericReadouts();
-      resize();
-      draw();
-      validateGenesis(false);
-
-      updateV5Status(
-        `Loaded editable project · format v${data.projectFormatVersion}`
-      );
+      importProjectJSONText(String(reader.result||""));
     }catch(error){
       alert(error.message);
     }
@@ -1056,6 +1007,193 @@ function createRevisionFromApproved(){
   );
 }
 
+
+function uniquePaletteFromCells(cells){
+  const seen=new Map();
+
+  for(const v of cells){
+    if(!v || v[3]===0) continue;
+    const key=`${v[0]},${v[1]},${v[2]},${v[3]}`;
+    if(!seen.has(key)) seen.set(key,[...v]);
+  }
+
+  return [...seen.values()];
+}
+
+function restoreApprovedGenesisFrom64PNG(file){
+  if(!file) return;
+
+  const url=URL.createObjectURL(file);
+  const image=new Image();
+
+  image.onload=()=>{
+    try{
+      if(image.width!==64 || image.height!==64){
+        throw new Error(
+          `This recovery tool requires the exact 64×64 Genesis master PNG. Selected image is ${image.width}×${image.height}.`
+        );
+      }
+
+      const c=document.createElement("canvas");
+      c.width=64;
+      c.height=64;
+      const ctx=c.getContext("2d",{willReadFrequently:true});
+      ctx.imageSmoothingEnabled=false;
+      ctx.clearRect(0,0,64,64);
+      ctx.drawImage(image,0,0);
+
+      const data=ctx.getImageData(0,0,64,64).data;
+      const cells=new Array(4096).fill(null);
+
+      for(let i=0;i<4096;i++){
+        const a=data[i*4+3];
+        if(a===0) continue;
+        cells[i]=[
+          data[i*4],
+          data[i*4+1],
+          data[i*4+2],
+          a
+        ];
+      }
+
+      if(!cells.some(Boolean)){
+        throw new Error("The selected 64×64 PNG contains no visible Genesis pixels.");
+      }
+
+      const palette=uniquePaletteFromCells(cells);
+
+      state.n=64;
+      state.cells=cells;
+      state.undo=[];
+      state.redo=[];
+      state.suggestion=[];
+      state.suggestionPalette=[];
+      state.showSuggestion=false;
+      state.selectionStart=null;
+      state.selectionEnd=null;
+
+      state.projectMeta.projectName="APE16";
+      state.projectMeta.category="Genesis";
+      state.projectMeta.traitName="Brown";
+      state.projectMeta.revision=1;
+
+      state.genesisPalette=palette;
+      state.paletteLocked=true;
+      state.genesisReferenceLocked=true;
+      state.approved=true;
+
+      // The exported 64×64 PNG itself is the approved source of truth.
+      // The original tracing reference is intentionally not required for trait work.
+      state.reference=null;
+
+      applyProjectMetaToUI();
+      applyV4LockUI();
+      renderV5GenesisPalette();
+      updateNumericReadouts();
+      resize();
+      draw();
+      validateGenesis(false);
+
+      if(typeof window.APE16V6Refresh==="function"){
+        window.APE16V6Refresh();
+      }
+
+      updateV5Status(
+        `Approved Brown Genesis restored from exact 64×64 master · ${palette.length} colors`
+      );
+
+      showV4Notice("Approved Brown Genesis restored from 64×64 master PNG.");
+    }catch(error){
+      alert(error.message);
+    }finally{
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  image.onerror=()=>{
+    URL.revokeObjectURL(url);
+    alert("Could not read the selected PNG.");
+  };
+
+  image.src=url;
+}
+
+function importProjectJSONText(text){
+  const data=JSON.parse(String(text||""));
+  validateProjectPayload(data);
+
+  state.n=64;
+  state.cells=data.canvas.cells.map(v=>v ? [...v] : null);
+  state.undo=[];
+  state.redo=[];
+
+  state.projectMeta.projectName=data.meta?.projectName||"APE16";
+  state.projectMeta.category=data.meta?.category||"Genesis";
+  state.projectMeta.traitName=data.meta?.traitName||"Brown";
+  state.projectMeta.revision=Math.max(1,Number(data.meta?.revision)||1);
+
+  state.approved=Boolean(data.approved);
+  state.genesisReferenceLocked=Boolean(data.reference?.locked) || state.approved;
+
+  $("refOpacity").value=String(
+    Math.max(0,Math.min(100,Number(data.reference?.opacity ?? 45)))
+  );
+  $("refScale").value="85";
+  $("refX").value="0";
+  $("refY").value="0";
+
+  state.genesisPalette=Array.isArray(data.palette?.colors)
+    ? data.palette.colors.map(c=>[...c])
+    : uniquePaletteFromCells(state.cells);
+  state.paletteLocked=Boolean(data.palette?.locked) || state.approved;
+
+  state.showSuggestion=Boolean(data.suggestion?.visible);
+  state.suggestionOpacity=Number(data.suggestion?.opacity ?? .55);
+  state.suggestionPalette=Array.isArray(data.suggestion?.palette)
+    ? data.suggestion.palette.map(c=>[...c])
+    : [];
+  state.suggestion=Array.isArray(data.suggestion?.cells) &&
+    data.suggestion.cells.length===4096
+      ? data.suggestion.cells.map(v=>v ? [...v] : null)
+      : [];
+
+  // Saved projects do not embed the original tracing image.
+  // Approved masters are valid without it.
+  state.reference=null;
+
+  applyProjectMetaToUI();
+  applyV4LockUI();
+  renderV5GenesisPalette();
+  renderV5SuggestionPalette();
+  updateNumericReadouts();
+  resize();
+  draw();
+  validateGenesis(false);
+
+  if(typeof window.APE16V6Refresh==="function"){
+    window.APE16V6Refresh();
+  }
+
+  updateV5Status(
+    `Loaded editable project · format v${data.projectFormatVersion}`
+  );
+}
+
+function loadProjectThroughPrompt(){
+  const raw=prompt(
+    "Fallback JSON loader: paste the complete contents of your APE16 .json project here. Cancel to leave unchanged."
+  );
+
+  if(!raw) return;
+
+  try{
+    importProjectJSONText(raw);
+    showV4Notice("APE16 project restored from JSON text.");
+  }catch(error){
+    alert(error.message);
+  }
+}
+
 function setupV5ProjectSystem(){
   const exportSection=$("exportMasterBtn")?.closest("section");
   if(!exportSection || document.getElementById("v5ProjectSystem")) return;
@@ -1121,7 +1259,7 @@ function setupV5ProjectSystem(){
   load.title="iPad Files picker shows all files; Pixel Studio validates the selected project after selection.";
   const loadInput=document.createElement("input");
   loadInput.type="file";
-  loadInput.removeAttribute("accept");
+  loadInput.accept="*/*";
   loadInput.hidden=true;
   load.addEventListener("click",()=>loadInput.click());
   loadInput.addEventListener("change",e=>{
@@ -1129,6 +1267,25 @@ function setupV5ProjectSystem(){
     if(file) loadEditableProjectFile(file);
     e.target.value="";
   });
+
+  const restorePng=document.createElement("button");
+  restorePng.type="button";
+  restorePng.textContent="Restore Approved Brown from 64×64 PNG";
+  const restorePngInput=document.createElement("input");
+  restorePngInput.type="file";
+  restorePngInput.accept="image/png";
+  restorePngInput.hidden=true;
+  restorePng.addEventListener("click",()=>restorePngInput.click());
+  restorePngInput.addEventListener("change",e=>{
+    const file=e.target.files[0];
+    if(file) restoreApprovedGenesisFrom64PNG(file);
+    e.target.value="";
+  });
+
+  const pasteJson=document.createElement("button");
+  pasteJson.type="button";
+  pasteJson.textContent="Fallback: Paste Project JSON";
+  pasteJson.addEventListener("click",loadProjectThroughPrompt);
 
   const exportMaster=document.createElement("button");
   exportMaster.type="button";
@@ -1150,7 +1307,7 @@ function setupV5ProjectSystem(){
   revision.textContent="Create New Revision";
   revision.addEventListener("click",createRevisionFromApproved);
 
-  for(const b of [save,load,exportMaster,exportPreview,approve,revision]){
+  for(const b of [save,load,restorePng,pasteJson,exportMaster,exportPreview,approve,revision]){
     b.style.cssText=
       "padding:9px 11px;border-radius:9px;border:1px solid #444;background:#27272a;color:#fff;font-weight:750";
   }
@@ -1163,6 +1320,9 @@ function setupV5ProjectSystem(){
     save,
     load,
     loadInput,
+    restorePng,
+    restorePngInput,
+    pasteJson,
     exportMaster,
     exportPreview,
     approve,
@@ -2295,13 +2455,13 @@ function setupV6ProductionSystem(){
   document.head.appendChild(css);
 
   const host=document.createElement("section"); host.id="v6Production";
-  host.innerHTML=`<h2>APE16 V6 · NFT TRAIT ARCHITECTURE</h2><div class="v6good">Production system · approved Genesis remains untouched</div>
+  host.innerHTML=`<h2>APE16 V6.2 · NFT TRAIT ARCHITECTURE</h2><div class="v6good">Production system · approved Genesis remains untouched</div>
   <h3>TRAIT PROJECT</h3><div class="v6row"><select id="v6Category" class="v6field"><option>Headwear</option><option>Eyes</option><option>Mouth</option><option>Clothing</option><option>Body</option><option>Accessory</option><option>Legendary</option></select><input id="v6Name" class="v6field" value="NewTrait" placeholder="Trait name"><input id="v6Rev" class="v6field" type="number" min="1" value="1" style="width:70px"></div>
   <h3>EDIT MODE</h3><div class="v6row"><button id="v6TraitTool" class="v6btn active">Trait Art</button><button id="v6MaskTool" class="v6btn">Occlusion Mask</button><button id="v6EraseTool" class="v6btn">Eraser</button><input id="v6Color" type="color" value="#000000"><button id="v6ClearTrait" class="v6btn">Clear Trait</button><button id="v6ClearMask" class="v6btn">Clear Mask</button></div>
   <h3>ANCHORS</h3><div id="v6Anchors" class="v6row"></div><div class="v6warn" style="font-size:12px">Anchors are fixed Genesis landmarks. Trait art may use them for placement; it never moves Genesis.</div>
   <h3>COMPOSITE PREVIEW · Genesis − mask + trait</h3><canvas id="v6Canvas" width="512" height="512"></canvas>
   <div class="v6row"><button id="v6Validate" class="v6btn">Validate Trait</button><button id="v6Approve" class="v6btn">Approve + Lock Trait</button><button id="v6NewRev" class="v6btn">Create New Revision</button></div><div id="v6Status">Ready · create trait art and an occlusion mask.</div>
-  <h3>PROJECT / PRODUCTION EXPORT</h3><div class="v6row"><button id="v6Save" class="v6btn">Save V6 Trait Project</button><button id="v6Load" class="v6btn">Load V6 Trait Project</button><input id="v6LoadFile" type="file" hidden><button id="v6Export64" class="v6btn">Export Named 64×64 Trait</button><button id="v6Export1024" class="v6btn">Export 1024 Composite</button><button id="v6Export4096" class="v6btn">Export 4096×4096 Composite</button></div>
+  <h3>PROJECT / PRODUCTION EXPORT</h3><div class="v6row"><button id="v6Save" class="v6btn">Save V6 Trait Project</button><button id="v6Load" class="v6btn">Load V6 Trait Project</button><input id="v6LoadFile" type="file" accept="*/*" hidden><button id="v6Export64" class="v6btn">Export Named 64×64 Trait</button><button id="v6Export1024" class="v6btn">Export 1024 Composite</button><button id="v6Export4096" class="v6btn">Export 4096×4096 Composite</button></div>
   <div class="v6good" style="font-size:12px">4096 export = exact 64× nearest-neighbor enlargement of the 64×64 composite. No smoothing or invented pixels.</div>`;
   document.body.appendChild(host);
 
@@ -2330,6 +2490,7 @@ function setupV6ProductionSystem(){
   document.getElementById("v6Export1024").onclick=()=>exportComposite(1024);document.getElementById("v6Export4096").onclick=()=>exportComposite(4096);
   document.getElementById("v6Save").onclick=()=>{meta();const data={format:"APE16_PIXEL_STUDIO_V6_TRAIT",version:1,meta:{category:V6.category,name:V6.name,revision:V6.revision,approved:V6.approved},anchors:V6.anchors,mask:V6.mask,trait:V6.trait};dl(new Blob([JSON.stringify(data)],{type:"application/json"}),baseName()+".ape16.json")};
   document.getElementById("v6Load").onclick=()=>document.getElementById("v6LoadFile").click();document.getElementById("v6LoadFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.format!=="APE16_PIXEL_STUDIO_V6_TRAIT")throw Error("Not a V6 trait project");V6.trait=d.trait||new Array(4096).fill(null);V6.mask=d.mask||new Array(4096).fill(false);V6.anchors=d.anchors||V6.anchors;Object.assign(V6,{category:d.meta.category,name:d.meta.name,revision:d.meta.revision,approved:!!d.meta.approved});document.getElementById("v6Category").value=V6.category;document.getElementById("v6Name").value=V6.name;document.getElementById("v6Rev").value=V6.revision;drawV6();validate()}catch(err){alert(err.message)}};r.readAsText(f)};
+  window.APE16V6Refresh=drawV6;
   drawV6();
 }
 
