@@ -11,7 +11,23 @@ const state={
   tool:"pencil",
   drawing:false,
   reference:null,
-  genesisReferenceLocked:false
+  genesisReferenceLocked:false,
+  suggestion:[],
+  suggestionPalette:[],
+  showSuggestion:true,
+  suggestionOpacity:0.55,
+  selectionStart:null,
+  selectionEnd:null,
+  genesisPalette:[],
+  paletteLocked:false,
+  projectMeta:{
+    projectName:"APE16",
+    category:"Genesis",
+    traitName:"Brown",
+    revision:1,
+    projectFormatVersion:1
+  },
+  approved:false
 };
 
 const idx=(x,y)=>y*state.n+x;
@@ -200,14 +216,1244 @@ function drawGuides(ctx){
   }
 }
 
+
+function drawSuggestion(ctx){
+  if(
+    !state.showSuggestion ||
+    !state.suggestion ||
+    state.suggestion.length!==state.n*state.n
+  ) return;
+
+  ctx.save();
+  ctx.globalAlpha=state.suggestionOpacity;
+
+  for(let y=0;y<state.n;y++){
+    for(let x=0;x<state.n;x++){
+      const v=state.suggestion[idx(x,y)];
+      if(!v) continue;
+
+      // Do not obscure pixels already deliberately drawn.
+      if(state.cells[idx(x,y)]) continue;
+
+      ctx.fillStyle=rgbaCss(v);
+      ctx.fillRect(
+        x*state.zoom,
+        y*state.zoom,
+        state.zoom,
+        state.zoom
+      );
+    }
+  }
+
+  ctx.restore();
+}
+
+function normalizedSelection(){
+  if(!state.selectionStart || !state.selectionEnd) return null;
+
+  return {
+    x1:Math.min(state.selectionStart.x,state.selectionEnd.x),
+    y1:Math.min(state.selectionStart.y,state.selectionEnd.y),
+    x2:Math.max(state.selectionStart.x,state.selectionEnd.x),
+    y2:Math.max(state.selectionStart.y,state.selectionEnd.y)
+  };
+}
+
+function drawSelection(ctx){
+  const s=normalizedSelection();
+  if(!s) return;
+
+  ctx.save();
+  ctx.fillStyle="rgba(255,210,60,.14)";
+  ctx.strokeStyle="rgba(255,210,60,.98)";
+  ctx.lineWidth=2;
+
+  const x=s.x1*state.zoom;
+  const y=s.y1*state.zoom;
+  const w=(s.x2-s.x1+1)*state.zoom;
+  const h=(s.y2-s.y1+1)*state.zoom;
+
+  ctx.fillRect(x,y,w,h);
+  ctx.strokeRect(x+1,y+1,w-2,h-2);
+  ctx.restore();
+}
+
+function colorDistanceSq(a,b){
+  const dr=a[0]-b[0];
+  const dg=a[1]-b[1];
+  const db=a[2]-b[2];
+  return dr*dr+dg*dg+db*db;
+}
+
+function isNearWhite(pixel,cutoff){
+  if(!pixel || pixel[3]===0) return true;
+  return (
+    pixel[0]>=cutoff &&
+    pixel[1]>=cutoff &&
+    pixel[2]>=cutoff
+  );
+}
+
+function renderReferenceToLogicalCanvas(){
+  if(!state.reference) return null;
+
+  const c=document.createElement("canvas");
+  c.width=state.n;
+  c.height=state.n;
+
+  const ctx=c.getContext("2d");
+  ctx.clearRect(0,0,state.n,state.n);
+
+  const scale=Number($("refScale").value)/100;
+  const ox=Number($("refX").value);
+  const oy=Number($("refY").value);
+
+  const w=state.reference.width;
+  const h=state.reference.height;
+  const fit=Math.min(state.n/w,state.n/h)*scale;
+  const dw=w*fit;
+  const dh=h*fit;
+  const px=(state.n-dw)/2+ox;
+  const py=(state.n-dh)/2+oy;
+
+  // This is a TEMPORARY construction suggestion only.
+  // High-quality downsampling is allowed here because suggestion pixels
+  // never become approved art unless the user deliberately accepts them.
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality="high";
+  ctx.drawImage(state.reference,px,py,dw,dh);
+
+  return c;
+}
+
+function kMeansPalette(pixels,k,iterations=10){
+  if(!pixels.length) return [];
+
+  const unique=[];
+  const seen=new Set();
+
+  for(const p of pixels){
+    const key=`${p[0]},${p[1]},${p[2]}`;
+    if(!seen.has(key)){
+      seen.add(key);
+      unique.push(p);
+    }
+  }
+
+  if(unique.length<=k){
+    return unique.map(p=>[p[0],p[1],p[2],255]);
+  }
+
+  // Deterministic initialization: evenly spaced by luminance.
+  unique.sort((a,b)=>{
+    const la=a[0]*.2126+a[1]*.7152+a[2]*.0722;
+    const lb=b[0]*.2126+b[1]*.7152+b[2]*.0722;
+    return la-lb;
+  });
+
+  let centers=[];
+  for(let i=0;i<k;i++){
+    const pos=Math.floor(i*(unique.length-1)/Math.max(1,k-1));
+    centers.push(unique[pos].slice(0,3));
+  }
+
+  for(let iter=0;iter<iterations;iter++){
+    const sums=Array.from({length:k},()=>[0,0,0,0]);
+
+    for(const p of pixels){
+      let best=0;
+      let bestD=Infinity;
+
+      for(let i=0;i<centers.length;i++){
+        const d=colorDistanceSq(p,centers[i]);
+        if(d<bestD){
+          bestD=d;
+          best=i;
+        }
+      }
+
+      sums[best][0]+=p[0];
+      sums[best][1]+=p[1];
+      sums[best][2]+=p[2];
+      sums[best][3]++;
+    }
+
+    centers=centers.map((old,i)=>{
+      const n=sums[i][3];
+      return n
+        ? [
+            Math.round(sums[i][0]/n),
+            Math.round(sums[i][1]/n),
+            Math.round(sums[i][2]/n)
+          ]
+        : old;
+    });
+  }
+
+  return centers.map(c=>[c[0],c[1],c[2],255]);
+}
+
+function nearestPaletteColor(pixel,palette){
+  if(!palette.length) return pixel.slice();
+
+  let best=palette[0];
+  let bestD=Infinity;
+
+  for(const c of palette){
+    const d=colorDistanceSq(pixel,c);
+    if(d<bestD){
+      bestD=d;
+      best=c;
+    }
+  }
+
+  return best.slice();
+}
+
+function generateSuggestion(){
+  if(!state.reference || !state.genesisReferenceLocked){
+    showV4Notice("Load and lock Genesis before generating a suggestion.");
+    return;
+  }
+
+  const source=renderReferenceToLogicalCanvas();
+  if(!source) return;
+
+  const ctx=source.getContext("2d");
+  const data=ctx.getImageData(0,0,state.n,state.n).data;
+  const cutoff=Number(document.getElementById("v5WhiteCutoff")?.value || 242);
+  const paletteSize=Number(document.getElementById("v5PaletteSize")?.value || 8);
+
+  const usable=[];
+
+  for(let i=0;i<state.n*state.n;i++){
+    const p=[
+      data[i*4],
+      data[i*4+1],
+      data[i*4+2],
+      data[i*4+3]
+    ];
+
+    if(p[3]>20 && !isNearWhite(p,cutoff)){
+      usable.push(p);
+    }
+  }
+
+  const palette=kMeansPalette(usable,paletteSize,12);
+  state.suggestionPalette=palette;
+
+  state.suggestion=Array.from(
+    {length:state.n*state.n},
+    (_,i)=>{
+      const p=[
+        data[i*4],
+        data[i*4+1],
+        data[i*4+2],
+        data[i*4+3]
+      ];
+
+      if(p[3]<=20 || isNearWhite(p,cutoff)) return null;
+      return nearestPaletteColor(p,palette);
+    }
+  );
+
+  state.showSuggestion=true;
+  renderV5SuggestionPalette();
+  draw();
+  updateV5Status(
+    `Suggestion ready · ${palette.length} colors · temporary only`
+  );
+}
+
+function acceptSuggestionRegion(selectionOnly=false,onlyEmpty=true){
+  if(state.approved){
+    showV4Notice("Approved master is locked. Create a new revision to edit.");
+    return;
+  }
+
+  if(!state.suggestion?.length){
+    showV4Notice("Generate a suggested layer first.");
+    return;
+  }
+
+  const area=selectionOnly ? normalizedSelection() : {
+    x1:0,y1:0,x2:state.n-1,y2:state.n-1
+  };
+
+  if(!area){
+    showV4Notice("Select a rectangle on the canvas first.");
+    return;
+  }
+
+  saveUndo();
+
+  for(let y=area.y1;y<=area.y2;y++){
+    for(let x=area.x1;x<=area.x2;x++){
+      const suggested=state.suggestion[idx(x,y)];
+      if(!suggested) continue;
+      if(onlyEmpty && state.cells[idx(x,y)]) continue;
+      state.cells[idx(x,y)]=suggested.slice();
+    }
+  }
+
+  draw();
+  validateGenesis(false);
+}
+
+function clearArtworkRegion(){
+  if(state.approved){
+    showV4Notice("Approved master is locked. Create a new revision to edit.");
+    return;
+  }
+
+  const area=normalizedSelection();
+
+  if(!area){
+    showV4Notice("Select a rectangle first.");
+    return;
+  }
+
+  saveUndo();
+
+  for(let y=area.y1;y<=area.y2;y++){
+    for(let x=area.x1;x<=area.x2;x++){
+      state.cells[idx(x,y)]=null;
+    }
+  }
+
+  draw();
+}
+
+function clearSelection(){
+  state.selectionStart=null;
+  state.selectionEnd=null;
+  draw();
+}
+
+function rgbaToHex(v){
+  return "#"+v.slice(0,3)
+    .map(n=>n.toString(16).padStart(2,"0"))
+    .join("");
+}
+
+function renderV5SuggestionPalette(){
+  const host=document.getElementById("v5SuggestionPalette");
+  if(!host) return;
+
+  host.innerHTML="";
+
+  for(const color of state.suggestionPalette){
+    const sw=document.createElement("button");
+    sw.type="button";
+    sw.title=rgbaToHex(color);
+    sw.style.cssText=
+      `width:32px;height:32px;border-radius:7px;border:2px solid #555;background:${rgbaToHex(color)};padding:0`;
+
+    sw.addEventListener("click",()=>{
+      $("color").value=rgbaToHex(color);
+    });
+
+    host.appendChild(sw);
+  }
+}
+
+function useSuggestionAsGenesisPalette(){
+  if(!state.suggestionPalette.length){
+    showV4Notice("Generate a suggestion first.");
+    return;
+  }
+
+  state.genesisPalette=state.suggestionPalette.map(c=>c.slice());
+  state.paletteLocked=true;
+  renderV5GenesisPalette();
+  updateV5Status(
+    `Genesis palette locked · ${state.genesisPalette.length} colors`
+  );
+  validateGenesis(false);
+}
+
+function unlockGenesisPalette(){
+  state.paletteLocked=false;
+  updateV5Status("Genesis palette unlocked for editing");
+  validateGenesis(false);
+}
+
+function renderV5GenesisPalette(){
+  const host=document.getElementById("v5GenesisPalette");
+  if(!host) return;
+
+  host.innerHTML="";
+
+  for(const color of state.genesisPalette){
+    const sw=document.createElement("button");
+    sw.type="button";
+    sw.title=rgbaToHex(color);
+    sw.style.cssText=
+      `width:32px;height:32px;border-radius:7px;border:2px solid #555;background:${rgbaToHex(color)};padding:0`;
+
+    sw.addEventListener("click",()=>{
+      $("color").value=rgbaToHex(color);
+    });
+
+    host.appendChild(sw);
+  }
+}
+
+function colorAllowedByGenesisPalette(v){
+  if(!state.paletteLocked || !state.genesisPalette.length) return true;
+
+  return state.genesisPalette.some(c=>
+    c[0]===v[0] &&
+    c[1]===v[1] &&
+    c[2]===v[2]
+  );
+}
+
+function findIsolatedPixels(){
+  const isolated=[];
+
+  for(let y=0;y<state.n;y++){
+    for(let x=0;x<state.n;x++){
+      if(!state.cells[idx(x,y)]) continue;
+
+      let neighbors=0;
+
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=x+dx;
+        const ny=y+dy;
+
+        if(
+          nx>=0 && ny>=0 &&
+          nx<state.n && ny<state.n &&
+          state.cells[idx(nx,ny)]
+        ){
+          neighbors++;
+        }
+      }
+
+      if(neighbors===0){
+        isolated.push({x,y});
+      }
+    }
+  }
+
+  return isolated;
+}
+
+function validateGenesis(showNotice=true){
+  const issues=[];
+  const warnings=[];
+
+  if(state.n!==64){
+    issues.push("Master canvas is not 64×64.");
+  }
+
+  if(!state.reference){
+    issues.push("Brown Genesis reference is not loaded.");
+  }
+
+  if(!state.genesisReferenceLocked){
+    issues.push("Genesis reference is not locked.");
+  }
+
+  const painted=state.cells.filter(Boolean).length;
+
+  if(painted===0){
+    warnings.push("No Genesis artwork has been drawn yet.");
+  }
+
+  if(state.paletteLocked && state.genesisPalette.length){
+    let offPalette=0;
+
+    for(const v of state.cells){
+      if(v && !colorAllowedByGenesisPalette(v)){
+        offPalette++;
+      }
+    }
+
+    if(offPalette){
+      issues.push(`${offPalette} artwork pixels are outside the locked Genesis palette.`);
+    }
+  }
+
+  const isolated=findIsolatedPixels();
+
+  if(isolated.length){
+    warnings.push(
+      `${isolated.length} isolated single pixel${isolated.length===1?"":"s"} detected. Review intentionally.`
+    );
+  }
+
+  const panel=document.getElementById("v5ValidationResults");
+
+  if(panel){
+    panel.innerHTML="";
+
+    const summary=document.createElement("div");
+    summary.style.cssText=
+      "font-weight:900;margin-bottom:8px;color:"+
+      (issues.length ? "#ff9d9d" : "#9ee6aa");
+
+    summary.textContent=issues.length
+      ? `FAIL · ${issues.length} hard issue${issues.length===1?"":"s"}`
+      : "HARD RULES PASS";
+
+    panel.appendChild(summary);
+
+    for(const item of issues){
+      const row=document.createElement("div");
+      row.textContent="✕ "+item;
+      row.style.cssText="color:#ffb1b1;margin:5px 0;font-size:13px";
+      panel.appendChild(row);
+    }
+
+    for(const item of warnings){
+      const row=document.createElement("div");
+      row.textContent="⚠ "+item;
+      row.style.cssText="color:#ffd98a;margin:5px 0;font-size:13px";
+      panel.appendChild(row);
+    }
+
+    if(!issues.length && !warnings.length){
+      const row=document.createElement("div");
+      row.textContent="✓ No validation warnings detected.";
+      row.style.cssText="color:#9ee6aa;font-size:13px";
+      panel.appendChild(row);
+    }
+
+    const stats=document.createElement("div");
+    stats.style.cssText=
+      "margin-top:9px;padding-top:9px;border-top:1px solid #333;color:#bbb;font-size:12px";
+    stats.textContent=
+      `Painted cells: ${painted.toLocaleString()} / 4,096 · Isolated: ${isolated.length} · Palette: ${
+        state.paletteLocked ? `LOCKED (${state.genesisPalette.length})` : "unlocked"
+      }`;
+
+    panel.appendChild(stats);
+  }
+
+  if(showNotice){
+    showV4Notice(
+      issues.length
+        ? `Genesis validation failed: ${issues.length} hard issue(s).`
+        : warnings.length
+          ? `Hard rules pass with ${warnings.length} warning(s).`
+          : "Genesis validation passed."
+    );
+  }
+
+  return {
+    pass:issues.length===0,
+    issues,
+    warnings,
+    isolated,
+    painted
+  };
+}
+
+function updateV5Status(text){
+  const el=document.getElementById("v5Status");
+  if(el) el.textContent=text;
+}
+
+
+const APE16_PROJECT_FORMAT_VERSION=1;
+
+function safeFilePart(value,fallback="untitled"){
+  const cleaned=String(value||fallback)
+    .trim()
+    .replace(/[^a-z0-9_-]+/gi,"_")
+    .replace(/^_+|_+$/g,"");
+  return cleaned || fallback;
+}
+
+function currentProjectBaseName(){
+  return [
+    safeFilePart(state.projectMeta.projectName,"APE16"),
+    safeFilePart(state.projectMeta.category,"Genesis"),
+    safeFilePart(state.projectMeta.traitName,"Brown")
+  ].join("_");
+}
+
+function currentRevisionSuffix(){
+  return `_r${String(Math.max(1,Number(state.projectMeta.revision)||1)).padStart(2,"0")}`;
+}
+
+function syncProjectMetaFromUI(){
+  const projectName=document.getElementById("v5ProjectName");
+  const category=document.getElementById("v5Category");
+  const traitName=document.getElementById("v5TraitName");
+  const revision=document.getElementById("v5Revision");
+
+  if(projectName) state.projectMeta.projectName=projectName.value||"APE16";
+  if(category) state.projectMeta.category=category.value||"Genesis";
+  if(traitName) state.projectMeta.traitName=traitName.value||"Brown";
+  if(revision) state.projectMeta.revision=Math.max(1,Math.floor(Number(revision.value)||1));
+}
+
+function applyProjectMetaToUI(){
+  const projectName=document.getElementById("v5ProjectName");
+  const category=document.getElementById("v5Category");
+  const traitName=document.getElementById("v5TraitName");
+  const revision=document.getElementById("v5Revision");
+  const approvedBadge=document.getElementById("v5ApprovedBadge");
+
+  if(projectName) projectName.value=state.projectMeta.projectName;
+  if(category) category.value=state.projectMeta.category;
+  if(traitName) traitName.value=state.projectMeta.traitName;
+  if(revision) revision.value=state.projectMeta.revision;
+
+  if(approvedBadge){
+    approvedBadge.textContent=state.approved ? "🔒 APPROVED MASTER" : "WORKING PROJECT";
+    approvedBadge.style.background=state.approved ? "#17311f" : "#2a2214";
+    approvedBadge.style.borderColor=state.approved ? "#315f3e" : "#6a5428";
+    approvedBadge.style.color=state.approved ? "#9ee6aa" : "#ffd98a";
+  }
+
+  const inputs=["v5ProjectName","v5Category","v5TraitName","v5Revision"];
+  for(const id of inputs){
+    const el=document.getElementById(id);
+    if(el) el.disabled=state.approved;
+  }
+
+  // Freeze artwork editing when approved
+  const editButtons=[
+    ...document.querySelectorAll("[data-tool]"),
+    document.getElementById("undoBtn"),
+    document.getElementById("redoBtn"),
+    document.getElementById("clearBtn"),
+    document.getElementById("v5SelectTool")
+  ].filter(Boolean);
+
+  for(const b of editButtons){
+    b.disabled=state.approved;
+    b.style.opacity=state.approved?".4":"1";
+  }
+}
+
+function serializeCells(cells){
+  return cells.map(v=>v ? [...v] : null);
+}
+
+function makeProjectPayload(){
+  syncProjectMetaFromUI();
+
+  return {
+    format:"APE16_PIXEL_STUDIO_PROJECT",
+    projectFormatVersion:APE16_PROJECT_FORMAT_VERSION,
+    savedAt:new Date().toISOString(),
+    studioGeneration:"V5",
+    meta:{
+      projectName:state.projectMeta.projectName,
+      category:state.projectMeta.category,
+      traitName:state.projectMeta.traitName,
+      revision:state.projectMeta.revision
+    },
+    approved:state.approved,
+    canvas:{
+      resolution:64,
+      cells:serializeCells(state.cells)
+    },
+    reference:{
+      locked:state.genesisReferenceLocked,
+      scale:85,
+      x:0,
+      y:0,
+      opacity:Number($("refOpacity")?.value||45)
+    },
+    palette:{
+      locked:state.paletteLocked,
+      colors:state.genesisPalette.map(c=>[...c])
+    },
+    suggestion:{
+      visible:state.showSuggestion,
+      opacity:state.suggestionOpacity,
+      palette:state.suggestionPalette.map(c=>[...c]),
+      cells:serializeCells(state.suggestion)
+    }
+  };
+}
+
+function downloadText(text,name,type="application/json"){
+  const blob=new Blob([text],{type});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+
+function saveEditableProject(){
+  const payload=makeProjectPayload();
+  const name=`${currentProjectBaseName()}${currentRevisionSuffix()}.ape16.json`;
+  downloadText(JSON.stringify(payload,null,2),name);
+  updateV5Status(`Saved editable project · ${name}`);
+}
+
+function validateProjectPayload(data){
+  if(!data || data.format!=="APE16_PIXEL_STUDIO_PROJECT"){
+    throw new Error("This is not an APE16 Pixel Studio project file.");
+  }
+
+  const version=Number(data.projectFormatVersion||0);
+  if(version<1 || version>APE16_PROJECT_FORMAT_VERSION){
+    throw new Error(
+      `Unsupported project format version ${version}. Current supported version is ${APE16_PROJECT_FORMAT_VERSION}.`
+    );
+  }
+
+  if(data.canvas?.resolution!==64){
+    throw new Error("APE16 project canvas must be 64×64.");
+  }
+
+  if(!Array.isArray(data.canvas?.cells) || data.canvas.cells.length!==4096){
+    throw new Error("Project pixel data is invalid.");
+  }
+}
+
+function loadEditableProjectFile(file){
+  const reader=new FileReader();
+
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(String(reader.result||""));
+      validateProjectPayload(data);
+
+      state.n=64;
+      state.cells=data.canvas.cells.map(v=>v ? [...v] : null);
+      state.undo=[];
+      state.redo=[];
+
+      state.projectMeta.projectName=data.meta?.projectName||"APE16";
+      state.projectMeta.category=data.meta?.category||"Genesis";
+      state.projectMeta.traitName=data.meta?.traitName||"Brown";
+      state.projectMeta.revision=Math.max(1,Number(data.meta?.revision)||1);
+
+      state.approved=Boolean(data.approved);
+      state.genesisReferenceLocked=Boolean(data.reference?.locked);
+
+      $("refOpacity").value=String(
+        Math.max(0,Math.min(100,Number(data.reference?.opacity ?? 45)))
+      );
+      $("refScale").value="85";
+      $("refX").value="0";
+      $("refY").value="0";
+
+      state.genesisPalette=Array.isArray(data.palette?.colors)
+        ? data.palette.colors.map(c=>[...c])
+        : [];
+      state.paletteLocked=Boolean(data.palette?.locked);
+
+      state.showSuggestion=Boolean(data.suggestion?.visible);
+      state.suggestionOpacity=Number(data.suggestion?.opacity ?? .55);
+      state.suggestionPalette=Array.isArray(data.suggestion?.palette)
+        ? data.suggestion.palette.map(c=>[...c])
+        : [];
+      state.suggestion=Array.isArray(data.suggestion?.cells) &&
+        data.suggestion.cells.length===4096
+          ? data.suggestion.cells.map(v=>v ? [...v] : null)
+          : [];
+
+      applyProjectMetaToUI();
+      applyV4LockUI();
+      renderV5GenesisPalette();
+      renderV5SuggestionPalette();
+      updateNumericReadouts();
+      resize();
+      draw();
+      validateGenesis(false);
+
+      updateV5Status(
+        `Loaded editable project · format v${data.projectFormatVersion}`
+      );
+    }catch(error){
+      alert(error.message);
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+function exportNamedLogicalMaster(){
+  syncProjectMetaFromUI();
+
+  const validation=validateGenesis(false);
+  if(!validation.pass){
+    showV4Notice("Fix Genesis hard-rule failures before production export.");
+    return;
+  }
+
+  const name=`${currentProjectBaseName()}_64x64.png`;
+  downloadCanvas(logicalCanvas(),name);
+  updateV5Status(`Exported master · ${name}`);
+}
+
+function exportNamed1024Preview(){
+  syncProjectMetaFromUI();
+
+  const validation=validateGenesis(false);
+  if(!validation.pass){
+    showV4Notice("Fix Genesis hard-rule failures before production export.");
+    return;
+  }
+
+  const src=logicalCanvas();
+  const out=document.createElement("canvas");
+  out.width=1024;
+  out.height=1024;
+
+  const ctx=out.getContext("2d");
+  ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,1024,1024);
+  ctx.drawImage(src,0,0,1024,1024);
+
+  const name=`${currentProjectBaseName()}_1024x1024.png`;
+  downloadCanvas(out,name);
+  updateV5Status(`Exported preview · ${name}`);
+}
+
+function approveMaster(){
+  const validation=validateGenesis(true);
+
+  if(!validation.pass){
+    showV4Notice("Genesis cannot be approved until all hard-rule failures are fixed.");
+    return;
+  }
+
+  if(validation.painted===0){
+    showV4Notice("Genesis has no artwork to approve.");
+    return;
+  }
+
+  const ok=confirm(
+    "Approve and lock this master? Editing will be disabled until you deliberately create a new revision."
+  );
+  if(!ok) return;
+
+  state.approved=true;
+  applyProjectMetaToUI();
+  updateV5Status("Master approved and locked.");
+}
+
+function createRevisionFromApproved(){
+  if(!state.approved){
+    showV4Notice("Current project is already editable.");
+    return;
+  }
+
+  const ok=confirm(
+    "Create a new editable revision from the approved master? The artwork is copied; the approved file itself is not changed."
+  );
+  if(!ok) return;
+
+  state.approved=false;
+  state.projectMeta.revision=Math.max(1,Number(state.projectMeta.revision)||1)+1;
+  applyProjectMetaToUI();
+  updateV5Status(
+    `Created editable revision r${String(state.projectMeta.revision).padStart(2,"0")}`
+  );
+}
+
+function setupV5ProjectSystem(){
+  const exportSection=$("exportMasterBtn")?.closest("section");
+  if(!exportSection || document.getElementById("v5ProjectSystem")) return;
+
+  const wrap=document.createElement("div");
+  wrap.id="v5ProjectSystem";
+  wrap.style.cssText=
+    "margin-top:14px;padding:12px;border:1px solid #3a3a40;border-radius:12px;background:#101012";
+
+  const title=document.createElement("div");
+  title.textContent="APE16 PROJECT / SAVE / EXPORT";
+  title.style.cssText="font-weight:900;font-size:14px;margin-bottom:8px";
+
+  const badge=document.createElement("div");
+  badge.id="v5ApprovedBadge";
+  badge.style.cssText=
+    "display:inline-block;padding:7px 10px;border:1px solid #6a5428;border-radius:999px;background:#2a2214;color:#ffd98a;font-size:12px;font-weight:900;margin-bottom:10px";
+
+  const fields=document.createElement("div");
+  fields.style.cssText=
+    "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px";
+
+  function makeField(labelText,id,value,type="text"){
+    const label=document.createElement("label");
+    label.textContent=labelText;
+    label.style.cssText="display:flex;flex-direction:column;gap:5px;font-size:12px;color:#ccc";
+
+    const input=document.createElement("input");
+    input.id=id;
+    input.type=type;
+    input.value=value;
+    input.style.cssText=
+      "background:#111;color:#fff;border:1px solid #444;border-radius:8px;padding:8px";
+
+    if(type==="number"){
+      input.min="1";
+      input.step="1";
+    }
+
+    input.addEventListener("input",syncProjectMetaFromUI);
+    label.appendChild(input);
+    return label;
+  }
+
+  fields.append(
+    makeField("Project","v5ProjectName","APE16"),
+    makeField("Category","v5Category","Genesis"),
+    makeField("Trait name","v5TraitName","Brown"),
+    makeField("Revision","v5Revision","1","number")
+  );
+
+  const saveLoad=document.createElement("div");
+  saveLoad.style.cssText="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px";
+
+  const save=document.createElement("button");
+  save.type="button";
+  save.textContent="Save Editable Project";
+  save.addEventListener("click",saveEditableProject);
+
+  const load=document.createElement("button");
+  load.type="button";
+  load.textContent="Load Project";
+  const loadInput=document.createElement("input");
+  loadInput.type="file";
+  loadInput.accept=".json,.ape16.json,application/json";
+  loadInput.hidden=true;
+  load.addEventListener("click",()=>loadInput.click());
+  loadInput.addEventListener("change",e=>{
+    const file=e.target.files[0];
+    if(file) loadEditableProjectFile(file);
+    e.target.value="";
+  });
+
+  const exportMaster=document.createElement("button");
+  exportMaster.type="button";
+  exportMaster.textContent="Export Named 64×64 Master";
+  exportMaster.addEventListener("click",exportNamedLogicalMaster);
+
+  const exportPreview=document.createElement("button");
+  exportPreview.type="button";
+  exportPreview.textContent="Export Named 1024 Preview";
+  exportPreview.addEventListener("click",exportNamed1024Preview);
+
+  const approve=document.createElement("button");
+  approve.type="button";
+  approve.textContent="Approve + Lock Master";
+  approve.addEventListener("click",approveMaster);
+
+  const revision=document.createElement("button");
+  revision.type="button";
+  revision.textContent="Create New Revision";
+  revision.addEventListener("click",createRevisionFromApproved);
+
+  for(const b of [save,load,exportMaster,exportPreview,approve,revision]){
+    b.style.cssText=
+      "padding:9px 11px;border-radius:9px;border:1px solid #444;background:#27272a;color:#fff;font-weight:750";
+  }
+
+  approve.style.background="#f4f4f5";
+  approve.style.color="#111";
+  approve.style.fontWeight="900";
+
+  saveLoad.append(
+    save,
+    load,
+    loadInput,
+    exportMaster,
+    exportPreview,
+    approve,
+    revision
+  );
+
+  const naming=document.createElement("p");
+  naming.style.cssText="color:#a1a1aa;font-size:12px;line-height:1.45;margin:10px 0 0";
+  naming.textContent=
+    "Production names are automatic. Example: APE16_Genesis_Brown_64x64.png and APE16_Genesis_Brown_1024x1024.png. Editable projects use a revisioned .ape16.json filename and preserve all 4,096 logical cells.";
+
+  const format=document.createElement("div");
+  format.style.cssText=
+    "margin-top:9px;color:#9ee6aa;font-size:12px;font-weight:800";
+  format.textContent=
+    `Project format: APE16 Pixel Studio v${APE16_PROJECT_FORMAT_VERSION} · designed to migrate forward without redrawing`;
+
+  wrap.append(title,badge,fields,saveLoad,naming,format);
+  exportSection.appendChild(wrap);
+
+  applyProjectMetaToUI();
+}
+
+function setupV5ConstructionAssistant(){
+  const toolsSection=$("undoBtn")?.closest("section");
+  if(!toolsSection || document.getElementById("v5ConstructionAssistant")) return;
+
+  const wrap=document.createElement("div");
+  wrap.id="v5ConstructionAssistant";
+  wrap.style.cssText=
+    "margin-top:14px;padding:12px;border:1px solid #3a3a40;border-radius:12px;background:#101012";
+
+  const title=document.createElement("div");
+  title.textContent="APE16 V5 · ASSISTED GENESIS CONSTRUCTION";
+  title.style.cssText="font-weight:900;font-size:14px;margin-bottom:5px";
+
+  const explanation=document.createElement("p");
+  explanation.textContent=
+    "The Suggested Layer is a temporary tracing assistant—not approved artwork. Generate it from the locked reference, then deliberately accept, erase, or redraw pixels/regions.";
+  explanation.style.cssText=
+    "color:#a1a1aa;font-size:12px;line-height:1.45;margin:0 0 12px";
+
+  const settings=document.createElement("div");
+  settings.style.cssText=
+    "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px";
+
+  const paletteLabel=document.createElement("label");
+  paletteLabel.textContent="Suggested palette size";
+  paletteLabel.style.cssText="display:flex;flex-direction:column;gap:5px;font-size:12px;color:#ccc";
+
+  const paletteSize=document.createElement("select");
+  paletteSize.id="v5PaletteSize";
+  paletteSize.style.cssText=
+    "background:#111;color:#fff;border:1px solid #444;border-radius:8px;padding:8px";
+
+  for(const n of [6,8,10,12,16]){
+    const o=document.createElement("option");
+    o.value=String(n);
+    o.textContent=`${n} colors`;
+    if(n===8) o.selected=true;
+    paletteSize.appendChild(o);
+  }
+
+  paletteLabel.appendChild(paletteSize);
+
+  const cutoffLabel=document.createElement("label");
+  cutoffLabel.textContent="White background cutoff";
+  cutoffLabel.style.cssText="display:flex;flex-direction:column;gap:5px;font-size:12px;color:#ccc";
+
+  const cutoff=document.createElement("input");
+  cutoff.id="v5WhiteCutoff";
+  cutoff.type="number";
+  cutoff.min="210";
+  cutoff.max="255";
+  cutoff.step="1";
+  cutoff.value="242";
+  cutoff.style.cssText=
+    "background:#111;color:#fff;border:1px solid #444;border-radius:8px;padding:8px";
+
+  cutoffLabel.appendChild(cutoff);
+
+  settings.append(paletteLabel,cutoffLabel);
+
+  const suggestControls=document.createElement("div");
+  suggestControls.style.cssText=
+    "display:flex;gap:8px;flex-wrap:wrap;margin-top:10px";
+
+  const make=document.createElement("button");
+  make.type="button";
+  make.textContent="Generate Suggested Layer";
+  make.addEventListener("click",generateSuggestion);
+
+  const toggle=document.createElement("button");
+  toggle.type="button";
+  toggle.textContent="Show / Hide Suggestion";
+  toggle.addEventListener("click",()=>{
+    state.showSuggestion=!state.showSuggestion;
+    draw();
+  });
+
+  const clear=document.createElement("button");
+  clear.type="button";
+  clear.textContent="Clear Suggestion";
+  clear.addEventListener("click",()=>{
+    state.suggestion=[];
+    state.suggestionPalette=[];
+    renderV5SuggestionPalette();
+    draw();
+    updateV5Status("Suggestion cleared");
+  });
+
+  for(const b of [make,toggle,clear]){
+    b.style.cssText=
+      "padding:9px 11px;border-radius:9px;border:1px solid #444;background:#27272a;color:#fff;font-weight:700";
+  }
+
+  suggestControls.append(make,toggle,clear);
+
+  const opacityLabel=document.createElement("label");
+  opacityLabel.textContent="Suggested layer opacity";
+  opacityLabel.style.cssText=
+    "display:flex;flex-direction:column;gap:5px;margin-top:10px;font-size:12px;color:#ccc";
+
+  const opacity=document.createElement("input");
+  opacity.id="v5SuggestionOpacity";
+  opacity.type="range";
+  opacity.min="10";
+  opacity.max="100";
+  opacity.value="55";
+
+  opacity.addEventListener("input",()=>{
+    state.suggestionOpacity=Number(opacity.value)/100;
+    draw();
+  });
+
+  opacityLabel.appendChild(opacity);
+
+  const paletteTitle=document.createElement("div");
+  paletteTitle.textContent="Suggested palette";
+  paletteTitle.style.cssText="font-size:12px;font-weight:800;margin-top:10px;color:#ddd";
+
+  const suggestionPalette=document.createElement("div");
+  suggestionPalette.id="v5SuggestionPalette";
+  suggestionPalette.style.cssText="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px";
+
+  const regionTitle=document.createElement("div");
+  regionTitle.textContent="SECTION-BY-SECTION CONTROL";
+  regionTitle.style.cssText="font-size:12px;font-weight:900;margin-top:14px";
+
+  const regionHelp=document.createElement("p");
+  regionHelp.textContent=
+    "Tap Select Region, drag a rectangle on the 64×64 canvas, then accept suggested pixels only in that section or clear your editable artwork in that section.";
+  regionHelp.style.cssText="color:#aaa;font-size:12px;line-height:1.4;margin:5px 0 8px";
+
+  const regionControls=document.createElement("div");
+  regionControls.style.cssText="display:flex;gap:8px;flex-wrap:wrap";
+
+  const select=document.createElement("button");
+  select.type="button";
+  select.id="v5SelectTool";
+  select.textContent="Select Region";
+  select.addEventListener("click",()=>{
+    state.tool="v5select";
+    document.querySelectorAll("[data-tool]").forEach(b=>b.classList.remove("active"));
+    select.style.background="#f4f4f5";
+    select.style.color="#111";
+    updateV5Status("Selection mode active · drag a rectangle on canvas");
+  });
+
+  const acceptRegion=document.createElement("button");
+  acceptRegion.type="button";
+  acceptRegion.textContent="Accept Suggested Region";
+  acceptRegion.addEventListener("click",()=>acceptSuggestionRegion(true,true));
+
+  const replaceRegion=document.createElement("button");
+  replaceRegion.type="button";
+  replaceRegion.textContent="Replace Region from Suggestion";
+  replaceRegion.addEventListener("click",()=>acceptSuggestionRegion(true,false));
+
+  const clearRegion=document.createElement("button");
+  clearRegion.type="button";
+  clearRegion.textContent="Clear Artwork Region";
+  clearRegion.addEventListener("click",clearArtworkRegion);
+
+  const clearSel=document.createElement("button");
+  clearSel.type="button";
+  clearSel.textContent="Clear Selection";
+  clearSel.addEventListener("click",clearSelection);
+
+  const acceptAll=document.createElement("button");
+  acceptAll.type="button";
+  acceptAll.textContent="Accept Suggestion into Empty Cells";
+  acceptAll.addEventListener("click",()=>acceptSuggestionRegion(false,true));
+
+  for(const b of [select,acceptRegion,replaceRegion,clearRegion,clearSel,acceptAll]){
+    b.style.cssText=
+      "padding:9px 11px;border-radius:9px;border:1px solid #444;background:#27272a;color:#fff;font-weight:700";
+  }
+
+  regionControls.append(
+    select,
+    acceptRegion,
+    replaceRegion,
+    clearRegion,
+    clearSel,
+    acceptAll
+  );
+
+  const paletteLockTitle=document.createElement("div");
+  paletteLockTitle.textContent="GENESIS PALETTE";
+  paletteLockTitle.style.cssText="font-size:12px;font-weight:900;margin-top:14px";
+
+  const genesisPalette=document.createElement("div");
+  genesisPalette.id="v5GenesisPalette";
+  genesisPalette.style.cssText="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px";
+
+  const paletteControls=document.createElement("div");
+  paletteControls.style.cssText="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px";
+
+  const usePalette=document.createElement("button");
+  usePalette.type="button";
+  usePalette.textContent="Lock Suggested Colors as Genesis Palette";
+  usePalette.addEventListener("click",useSuggestionAsGenesisPalette);
+
+  const unlockPalette=document.createElement("button");
+  unlockPalette.type="button";
+  unlockPalette.textContent="Unlock Palette";
+  unlockPalette.addEventListener("click",unlockGenesisPalette);
+
+  for(const b of [usePalette,unlockPalette]){
+    b.style.cssText=
+      "padding:9px 11px;border-radius:9px;border:1px solid #444;background:#27272a;color:#fff;font-weight:700";
+  }
+
+  paletteControls.append(usePalette,unlockPalette);
+
+  const validationTitle=document.createElement("div");
+  validationTitle.textContent="GENESIS VALIDATION";
+  validationTitle.style.cssText="font-size:12px;font-weight:900;margin-top:14px";
+
+  const validateButton=document.createElement("button");
+  validateButton.type="button";
+  validateButton.textContent="Validate Genesis";
+  validateButton.style.cssText=
+    "margin-top:8px;padding:10px 13px;border-radius:9px;border:1px solid #555;background:#f4f4f5;color:#111;font-weight:900";
+  validateButton.addEventListener("click",()=>validateGenesis(true));
+
+  const results=document.createElement("div");
+  results.id="v5ValidationResults";
+  results.style.cssText=
+    "margin-top:9px;padding:10px;border:1px solid #333;border-radius:9px;background:#0c0c0e";
+
+  const status=document.createElement("div");
+  status.id="v5Status";
+  status.textContent="Ready · Genesis reference must remain locked";
+  status.style.cssText=
+    "margin-top:10px;color:#9ee6aa;font-size:12px;font-weight:800";
+
+  wrap.append(
+    title,
+    explanation,
+    settings,
+    suggestControls,
+    opacityLabel,
+    paletteTitle,
+    suggestionPalette,
+    regionTitle,
+    regionHelp,
+    regionControls,
+    paletteLockTitle,
+    genesisPalette,
+    paletteControls,
+    validationTitle,
+    validateButton,
+    results,
+    status
+  );
+
+  toolsSection.appendChild(wrap);
+  validateGenesis(false);
+}
+
 function draw(){
   const c=$("canvas");
   const ctx=c.getContext("2d");
 
   ctx.clearRect(0,0,c.width,c.height);
   drawReference(ctx);
+  drawSuggestion(ctx);
   drawPixelCells(ctx);
   drawGuides(ctx);
+  drawSelection(ctx);
 }
 
 function reset(n){
@@ -215,6 +1461,8 @@ function reset(n){
   state.cells=empty(n);
   state.undo=[];
   state.redo=[];
+  state.selectionStart=null;
+  state.selectionEnd=null;
   resize();
   draw();
 }
@@ -294,6 +1542,11 @@ function pointerCell(ev){
 }
 
 function applyTool(x,y,first=false){
+  if(state.approved){
+    showV4Notice("Approved master is locked. Create a new revision to edit.");
+    return;
+  }
+
   if(!state.reference || !state.genesisReferenceLocked){
     showV4Notice(
       !state.reference
@@ -309,7 +1562,14 @@ function applyTool(x,y,first=false){
   if(first) saveUndo();
 
   if(state.tool==="pencil"){
-    setCell(x,y,hexToRgba($("color").value));
+    const chosen=hexToRgba($("color").value);
+
+    if(!colorAllowedByGenesisPalette(chosen)){
+      showV4Notice("That color is outside the locked Genesis palette.");
+      return;
+    }
+
+    setCell(x,y,chosen);
   }else if(state.tool==="eraser"){
     setCell(x,y,null);
   }else if(state.tool==="fill"){
@@ -335,6 +1595,16 @@ canvas.addEventListener("pointerdown",ev=>{
   ev.preventDefault();
 
   const p=pointerCell(ev);
+
+  if(state.tool==="v5select"){
+    state.selectionStart={...p};
+    state.selectionEnd={...p};
+    state.drawing=true;
+    canvas.setPointerCapture(ev.pointerId);
+    draw();
+    return;
+  }
+
   state.drawing=true;
   canvas.setPointerCapture(ev.pointerId);
   applyTool(p.x,p.y,true);
@@ -345,6 +1615,12 @@ canvas.addEventListener("pointermove",ev=>{
 
   $("coord").textContent=
     `x: ${p.x} y: ${p.y}  |  legal range: 0–${state.n-1}`;
+
+  if(state.drawing && state.tool==="v5select"){
+    state.selectionEnd={...p};
+    draw();
+    return;
+  }
 
   if(
     state.drawing &&
@@ -375,6 +1651,12 @@ document
     button.addEventListener("click",()=>{
       state.tool=button.dataset.tool;
 
+      const selectButton=document.getElementById("v5SelectTool");
+      if(selectButton){
+        selectButton.style.background="#27272a";
+        selectButton.style.color="#fff";
+      }
+
       document
         .querySelectorAll("[data-tool]")
         .forEach(b=>{
@@ -384,27 +1666,42 @@ document
   });
 
 $("undoBtn").onclick=()=>{
+  if(state.approved){
+    showV4Notice("Approved master is locked.");
+    return;
+  }
   if(!state.undo.length) return;
 
   state.redo.push(state.cells.slice());
   state.cells=state.undo.pop();
   draw();
+  validateGenesis(false);
 };
 
 $("redoBtn").onclick=()=>{
+  if(state.approved){
+    showV4Notice("Approved master is locked.");
+    return;
+  }
   if(!state.redo.length) return;
 
   state.undo.push(state.cells.slice());
   state.cells=state.redo.pop();
   draw();
+  validateGenesis(false);
 };
 
 $("clearBtn").onclick=()=>{
+  if(state.approved){
+    showV4Notice("Approved master is locked.");
+    return;
+  }
   if(!confirm("Clear current layer?")) return;
 
   saveUndo();
   state.cells=empty(state.n);
   draw();
+  validateGenesis(false);
 };
 
 $("resolution").onchange=ev=>{
@@ -537,6 +1834,12 @@ function downloadCanvas(c,name){
 $("exportMasterBtn").onclick=()=>{
   if(!state.reference || !state.genesisReferenceLocked){
     showV4Notice("Lock the Genesis reference before exporting the 64×64 master.");
+    return;
+  }
+
+  const validation=validateGenesis(false);
+  if(!validation.pass){
+    showV4Notice("Fix Genesis hard-rule failures before export.");
     return;
   }
 
@@ -832,6 +2135,14 @@ function unlockGenesisReference(){
   }
 
   state.genesisReferenceLocked=false;
+  state.suggestion=[];
+  state.suggestionPalette=[];
+  state.selectionStart=null;
+  state.selectionEnd=null;
+  state.genesisPalette=[];
+  state.paletteLocked=false;
+  renderV5SuggestionPalette?.();
+  renderV5GenesisPalette?.();
   saveV4LockState();
   applyV4LockUI();
   draw();
@@ -966,6 +2277,8 @@ ensureNumericReadouts();
 setupV3ReferenceControls();
 reset(64);
 setupV4RuleEnforcement();
+setupV5ConstructionAssistant();
+setupV5ProjectSystem();
 $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 })();
