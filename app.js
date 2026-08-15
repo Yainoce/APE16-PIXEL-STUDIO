@@ -2272,6 +2272,66 @@ function setupV4RuleEnforcement(){
   updateNumericReadouts();
 }
 
+
+
+// ============================================================
+// APE16 PIXEL STUDIO V6 — NFT TRAIT ARCHITECTURE + 4K EXPORT
+// Additive upgrade: preserves V5 project format and approved Genesis.
+// ============================================================
+function setupV6ProductionSystem(){
+  if(document.getElementById("v6Production")) return;
+
+  const V6={
+    trait:new Array(4096).fill(null),
+    mask:new Array(4096).fill(false),
+    anchors:{head:[32,18],leftEye:[27,31],rightEye:[37,31],leftEar:[18,32],rightEar:[46,32],mouth:[32,40],neck:[32,49],shoulders:[32,55]},
+    category:"Headwear", name:"NewTrait", revision:1, approved:false, tool:"trait", color:[0,0,0,255], drawing:false
+  };
+  window.APE16_V6=V6;
+
+  const css=document.createElement("style");
+  css.textContent=`#v6Production{margin:18px 0;padding:16px;border:1px solid #3f3f46;border-radius:14px;background:#101012;color:#f4f4f5}#v6Production h2{margin:0 0 8px;font-size:22px}#v6Production h3{margin:18px 0 8px;font-size:14px}.v6row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.v6btn{padding:10px 12px;border-radius:9px;border:1px solid #52525b;background:#27272a;color:white;font-weight:800}.v6btn.active{background:#f4f4f5;color:#111}.v6field{background:#18181b;color:#fff;border:1px solid #3f3f46;border-radius:8px;padding:9px;min-width:120px}.v6good{color:#86efac}.v6warn{color:#fbbf24}.v6bad{color:#fca5a5}#v6Canvas{width:min(100%,640px);height:auto;image-rendering:pixelated;background-image:linear-gradient(45deg,#ddd 25%,transparent 25%),linear-gradient(-45deg,#ddd 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ddd 75%),linear-gradient(-45deg,transparent 75%,#ddd 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;border:1px solid #52525b;touch-action:none}#v6Status{padding:11px;border:1px solid #3f3f46;border-radius:10px;background:#18181b;line-height:1.5}`;
+  document.head.appendChild(css);
+
+  const host=document.createElement("section"); host.id="v6Production";
+  host.innerHTML=`<h2>APE16 V6 · NFT TRAIT ARCHITECTURE</h2><div class="v6good">Production system · approved Genesis remains untouched</div>
+  <h3>TRAIT PROJECT</h3><div class="v6row"><select id="v6Category" class="v6field"><option>Headwear</option><option>Eyes</option><option>Mouth</option><option>Clothing</option><option>Body</option><option>Accessory</option><option>Legendary</option></select><input id="v6Name" class="v6field" value="NewTrait" placeholder="Trait name"><input id="v6Rev" class="v6field" type="number" min="1" value="1" style="width:70px"></div>
+  <h3>EDIT MODE</h3><div class="v6row"><button id="v6TraitTool" class="v6btn active">Trait Art</button><button id="v6MaskTool" class="v6btn">Occlusion Mask</button><button id="v6EraseTool" class="v6btn">Eraser</button><input id="v6Color" type="color" value="#000000"><button id="v6ClearTrait" class="v6btn">Clear Trait</button><button id="v6ClearMask" class="v6btn">Clear Mask</button></div>
+  <h3>ANCHORS</h3><div id="v6Anchors" class="v6row"></div><div class="v6warn" style="font-size:12px">Anchors are fixed Genesis landmarks. Trait art may use them for placement; it never moves Genesis.</div>
+  <h3>COMPOSITE PREVIEW · Genesis − mask + trait</h3><canvas id="v6Canvas" width="512" height="512"></canvas>
+  <div class="v6row"><button id="v6Validate" class="v6btn">Validate Trait</button><button id="v6Approve" class="v6btn">Approve + Lock Trait</button><button id="v6NewRev" class="v6btn">Create New Revision</button></div><div id="v6Status">Ready · create trait art and an occlusion mask.</div>
+  <h3>PROJECT / PRODUCTION EXPORT</h3><div class="v6row"><button id="v6Save" class="v6btn">Save V6 Trait Project</button><button id="v6Load" class="v6btn">Load V6 Trait Project</button><input id="v6LoadFile" type="file" accept=".json,.ape16" hidden><button id="v6Export64" class="v6btn">Export Named 64×64 Trait</button><button id="v6Export1024" class="v6btn">Export 1024 Composite</button><button id="v6Export4096" class="v6btn">Export 4096×4096 Composite</button></div>
+  <div class="v6good" style="font-size:12px">4096 export = exact 64× nearest-neighbor enlargement of the 64×64 composite. No smoothing or invented pixels.</div>`;
+  document.body.appendChild(host);
+
+  const vc=document.getElementById("v6Canvas"), vx=vc.getContext("2d"); vx.imageSmoothingEnabled=false;
+  function meta(){V6.category=document.getElementById("v6Category").value;V6.name=document.getElementById("v6Name").value||"NewTrait";V6.revision=Math.max(1,+document.getElementById("v6Rev").value||1)}
+  function safe(x){return String(x).trim().replace(/[^A-Za-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")||"Trait"}
+  function baseName(){meta();return `APE16_${safe(V6.category)}_${safe(V6.name)}_r${String(V6.revision).padStart(2,"0")}`}
+  function hex(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16),255]}
+  function logicalComposite(){const c=document.createElement("canvas");c.width=c.height=64;const q=c.getContext("2d");q.imageSmoothingEnabled=false;for(let i=0;i<4096;i++){let v=state.cells[i];if(V6.mask[i])v=null;if(V6.trait[i])v=V6.trait[i];if(v){q.fillStyle=`rgba(${v[0]},${v[1]},${v[2]},${v[3]/255})`;q.fillRect(i%64,Math.floor(i/64),1,1)}}return c}
+  function drawV6(){vx.clearRect(0,0,512,512);vx.imageSmoothingEnabled=false;vx.drawImage(logicalComposite(),0,0,512,512); // mask guide
+    if(!V6.approved){vx.globalAlpha=.28;vx.fillStyle="#ef4444";for(let i=0;i<4096;i++)if(V6.mask[i])vx.fillRect((i%64)*8,Math.floor(i/64)*8,8,8);vx.globalAlpha=1}
+    vx.fillStyle="#fde047";for(const [n,a] of Object.entries(V6.anchors)){vx.fillRect(a[0]*8+2,a[1]*8+2,4,4)}
+  }
+  function setTool(t){if(V6.approved)return;V6.tool=t;["Trait","Mask","Erase"].forEach(n=>document.getElementById("v6"+n+"Tool").classList.toggle("active",t===n.toLowerCase()))}
+  document.getElementById("v6TraitTool").onclick=()=>setTool("trait");document.getElementById("v6MaskTool").onclick=()=>setTool("mask");document.getElementById("v6EraseTool").onclick=()=>setTool("erase");document.getElementById("v6Color").oninput=e=>V6.color=hex(e.target.value);
+  function paint(e){if(V6.approved)return;const r=vc.getBoundingClientRect(),x=Math.max(0,Math.min(63,Math.floor((e.clientX-r.left)/r.width*64))),y=Math.max(0,Math.min(63,Math.floor((e.clientY-r.top)/r.height*64))),i=y*64+x;if(V6.tool==="trait")V6.trait[i]=V6.color.slice();else if(V6.tool==="mask")V6.mask[i]=true;else {V6.trait[i]=null;V6.mask[i]=false}drawV6()}
+  vc.addEventListener("pointerdown",e=>{V6.drawing=true;vc.setPointerCapture(e.pointerId);paint(e)});vc.addEventListener("pointermove",e=>{if(V6.drawing)paint(e)});vc.addEventListener("pointerup",()=>V6.drawing=false);
+  document.getElementById("v6ClearTrait").onclick=()=>{if(!V6.approved){V6.trait.fill(null);drawV6()}};document.getElementById("v6ClearMask").onclick=()=>{if(!V6.approved){V6.mask.fill(false);drawV6()}};
+  const aw=document.getElementById("v6Anchors");Object.entries(V6.anchors).forEach(([n,a])=>{const b=document.createElement("span");b.className="v6field";b.textContent=`${n}: ${a[0]},${a[1]}`;aw.appendChild(b)});
+  function validate(){let art=0,mask=0,outside=0;for(let i=0;i<4096;i++){if(V6.trait[i])art++;if(V6.mask[i])mask++;if(V6.trait[i]&&(!Array.isArray(V6.trait[i])||V6.trait[i].length!==4))outside++}const issues=[];if(!art)issues.push("No trait artwork drawn.");if(["Headwear","Eyes","Mouth","Clothing","Accessory","Legendary"].includes(V6.category)&&!mask)issues.push("No occlusion mask defined; confirm this trait truly covers no Genesis pixels.");if(outside)issues.push("Invalid pixel data detected.");const ok=art>0&&!outside;document.getElementById("v6Status").innerHTML=`<b class="${ok?'v6good':'v6bad'}">${ok?'TRAIT RULES PASS':'TRAIT NEEDS ATTENTION'}</b><br>Trait pixels: ${art} · Masked Genesis pixels: ${mask} · Atomic RGBA: ${outside?'FAIL':'PASS'}${issues.length?'<br>'+issues.join('<br>'):''}`;return ok}
+  document.getElementById("v6Validate").onclick=validate;document.getElementById("v6Approve").onclick=()=>{if(validate()){V6.approved=true;document.getElementById("v6Status").innerHTML+='<br><b class="v6good">🔒 APPROVED TRAIT MASTER</b>';drawV6()}};document.getElementById("v6NewRev").onclick=()=>{V6.approved=false;V6.revision++;document.getElementById("v6Rev").value=V6.revision;document.getElementById("v6Status").textContent="New editable revision created.";drawV6()};
+  function dl(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
+  function canvasBlob(c,name){c.toBlob(b=>dl(b,name),"image/png")}
+  document.getElementById("v6Export64").onclick=()=>{const c=document.createElement("canvas");c.width=c.height=64;const q=c.getContext("2d");for(let i=0;i<4096;i++){const v=V6.trait[i];if(v){q.fillStyle=`rgba(${v[0]},${v[1]},${v[2]},${v[3]/255})`;q.fillRect(i%64,Math.floor(i/64),1,1)}}canvasBlob(c,baseName()+"_64x64.png")};
+  function exportComposite(size){const src=logicalComposite(),o=document.createElement("canvas");o.width=o.height=size;const q=o.getContext("2d");q.imageSmoothingEnabled=false;q.drawImage(src,0,0,size,size);canvasBlob(o,baseName()+`_${size}x${size}_composite.png`)}
+  document.getElementById("v6Export1024").onclick=()=>exportComposite(1024);document.getElementById("v6Export4096").onclick=()=>exportComposite(4096);
+  document.getElementById("v6Save").onclick=()=>{meta();const data={format:"APE16_PIXEL_STUDIO_V6_TRAIT",version:1,meta:{category:V6.category,name:V6.name,revision:V6.revision,approved:V6.approved},anchors:V6.anchors,mask:V6.mask,trait:V6.trait};dl(new Blob([JSON.stringify(data)],{type:"application/json"}),baseName()+".ape16.json")};
+  document.getElementById("v6Load").onclick=()=>document.getElementById("v6LoadFile").click();document.getElementById("v6LoadFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.format!=="APE16_PIXEL_STUDIO_V6_TRAIT")throw Error("Not a V6 trait project");V6.trait=d.trait||new Array(4096).fill(null);V6.mask=d.mask||new Array(4096).fill(false);V6.anchors=d.anchors||V6.anchors;Object.assign(V6,{category:d.meta.category,name:d.meta.name,revision:d.meta.revision,approved:!!d.meta.approved});document.getElementById("v6Category").value=V6.category;document.getElementById("v6Name").value=V6.name;document.getElementById("v6Rev").value=V6.revision;drawV6();validate()}catch(err){alert(err.message)}};r.readAsText(f)};
+  drawV6();
+}
+
 // Initialize the V4 rule-enforcement system.
 ensureNumericReadouts();
 setupV3ReferenceControls();
@@ -2279,6 +2339,7 @@ reset(64);
 setupV4RuleEnforcement();
 setupV5ConstructionAssistant();
 setupV5ProjectSystem();
+setupV6ProductionSystem();
 $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 })();
