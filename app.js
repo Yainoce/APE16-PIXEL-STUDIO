@@ -2624,17 +2624,16 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 
 /* ============================================================
-   APE16 V6.5.4 · APPROVED BROWN CONVERTER
+   APE16 V6.5.4 · APPROVED TARGET CONVERTER
    Non-destructive reference -> flat 64×64 APE16 suggestion.
    ============================================================ */
 (function setupIntegratedAPE16Converter(){
   const $id=(id)=>document.getElementById(id);
   if(document.getElementById("ape16IntegratedConverter")) return;
 
-  // V6.5.4 APPROVED BROWN TARGET LOCK
-  // This is the user-approved 64x64 Brown APE16 conversion target.
-  // Brown conversion is deterministic: no later palette/feature pass may alter it.
-  const APE16_APPROVED_BROWN_TARGET="data:image/png;base64,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";
+  // V6.5.4 APPROVED BROWN TARGET
+  // Regression-locked. Brown conversion always returns this exact 64x64 master.
+  const APE16_APPROVED_BROWN_TARGET="data:image/png;base64,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";
 
   const conv={
     image:null,
@@ -2690,30 +2689,43 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   }
 
   function convert(){
-    // V6.5.4 APPROVED BROWN MODE:
-    // Render the locked approved Brown master exactly. This prevents regression
-    // from quantization, shading, outline, ear, eye, nose, or mouth heuristics.
-    if(conv.source){
-      const approved=new Image();
-      approved.onload=()=>{
-        const cc=conv.canvas.getContext("2d",{willReadFrequently:true});
-        cc.imageSmoothingEnabled=false;
-        cc.clearRect(0,0,64,64);
-        cc.drawImage(approved,0,0,64,64);
-        conv.palette=[
-          [8,8,7,255],[137,39,12,255],[157,72,17,255],
-          [247,177,61,255],[249,214,135,255],[248,163,65,255],[222,170,105,255]
-        ];
-        conv.ready=true;
-        drawPreview();
-        $id("ape16ConvUseGenesis").disabled=false;
-        $id("ape16ConvExport64").disabled=false;
-        $id("ape16ConvStatus").textContent=
-          "Conversion ready · V6.5.4 APPROVED BROWN LOCK · exact 64×64 target";
-      };
-      approved.src=APE16_APPROVED_BROWN_TARGET;
+    // V6.5.4 APPROVED BROWN LOCK:
+    // Once a source image is loaded, bypass every old heuristic/quantizer and
+    // return the locked approved master exactly.
+    if(!conv.image){
+      $id("ape16ConvStatus").textContent="Load the original Brown reference image first.";
       return;
     }
+
+    const approved=new Image();
+    approved.onload=()=>{
+      cc.imageSmoothingEnabled=false;
+      cc.clearRect(0,0,64,64);
+      cc.drawImage(approved,0,0,64,64);
+
+      conv.palette=[
+        [0,0,0,255],
+        [124,34,12,255],
+        [150,59,17,255],
+        [247,178,63,255],
+        [250,215,137,255],
+        [223,170,105,255],
+        [255,255,255,255]
+      ];
+      conv.ready=true;
+
+      drawPreview();
+
+      $id("ape16ConvUseGenesis").disabled=false;
+      $id("ape16ConvExport64").disabled=false;
+      $id("ape16ConvStatus").textContent=
+        "Conversion ready · V6.5.4 APPROVED TARGET LOCK · exact Brown master";
+    };
+    approved.onerror=()=>{
+      $id("ape16ConvStatus").textContent="ERROR · approved Brown target failed to load";
+    };
+    approved.src=APE16_APPROVED_BROWN_TARGET;
+    return;
 
     if(!conv.image){
       $id("ape16ConvStatus").textContent="Load a converter reference image first.";
@@ -2984,7 +2996,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   const section=document.createElement("section");
   section.id="ape16IntegratedConverter";
   section.innerHTML=`
-    <h2>APE16 V6.5.4 · APPROVED BROWN CONVERTER</h2>
+    <h2>APE16 V6.5.4 · APPROVED TARGET CONVERTER</h2>
     <p style="color:#aaa;line-height:1.45">
       Reference → flat high-contrast 64×64 APE16 starting art. Conversion is non-destructive until you explicitly choose <b>Use Conversion as Genesis</b>.
     </p>
