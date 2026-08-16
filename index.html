@@ -11,7 +11,7 @@
   <header class="topbar">
     <div>
       <div class="eyebrow">APE16 PRODUCTION</div>
-      <h1>Studio V7 · Character + Trait Builder</h1>
+      <h1>Studio V7.1 · Character + Trait Builder</h1>
       <div class="sub">True logical pixels · locked Genesis · generator-ready assets</div>
     </div>
     <div id="saveState" class="pill ok">READY</div>
@@ -101,10 +101,20 @@
               <button id="redoBtn">Redo</button>
               <button id="toggleGrid">Grid ON</button>
               <button id="toggleReference">Reference ON</button>
+              <label class="zoomControl">Cell Size
+                <select id="genesisCellSize">
+                  <option value="6">6 px</option>
+                  <option value="10" selected>10 px</option>
+                  <option value="14">14 px</option>
+                  <option value="18">18 px</option>
+                </select>
+              </label>
             </div>
 
-            <div class="canvasShell">
-              <canvas id="editorCanvas" width="768" height="768"></canvas>
+            <div class="canvasViewport" id="genesisViewport">
+              <div class="canvasShell logicalShell" id="genesisCanvasShell">
+                <canvas id="editorCanvas"></canvas>
+              </div>
             </div>
             <div id="cursorInfo" class="statusLine">x: — y: —</div>
           </div>
@@ -170,9 +180,19 @@
               <button data-trait-tool="unmask" class="traitTool">Unmask</button>
               <button id="traitUndo">Undo</button>
               <button id="traitRedo">Redo</button>
+              <label class="zoomControl">Cell Size
+                <select id="traitCellSize">
+                  <option value="6">6 px</option>
+                  <option value="10" selected>10 px</option>
+                  <option value="14">14 px</option>
+                  <option value="18">18 px</option>
+                </select>
+              </label>
             </div>
-            <div class="canvasShell">
-              <canvas id="traitEditorCanvas" width="768" height="768"></canvas>
+            <div class="canvasViewport" id="traitViewport">
+              <div class="canvasShell logicalShell" id="traitCanvasShell">
+                <canvas id="traitEditorCanvas"></canvas>
+              </div>
             </div>
             <div id="traitCursorInfo" class="statusLine">x: — y: —</div>
           </div>
@@ -266,6 +286,6 @@ metadata/
     <pre id="selftest" class="hidden"></pre>
   </main>
 
-  <script src="app.js?v=7.0.0"></script>
+  <script src="app.js?v=7.1.0"></script>
 </body>
 </html>
