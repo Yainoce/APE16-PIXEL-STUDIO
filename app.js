@@ -2,8 +2,20 @@
 (() => {
 "use strict";
 
-const VERSION="7.0.0";
+const VERSION="7.1.0";
 const LAYER_ORDER=["Background","Body","Clothing","Mouth","Eyes","Headwear","Accessories"];
+const ANCHOR_RATIOS={
+  head:[0.50,0.14],leftEye:[0.41,0.40],rightEye:[0.59,0.40],
+  leftEar:[0.27,0.48],rightEar:[0.73,0.48],mouth:[0.50,0.61],
+  neck:[0.50,0.74],shoulders:[0.50,0.88]
+};
+function anchorsForResolution(n){
+  const out={};
+  for(const [k,[rx,ry]] of Object.entries(ANCHOR_RATIOS)){
+    out[k]=[Math.round(rx*(n-1)),Math.round(ry*(n-1))];
+  }
+  return out;
+}
 const STORAGE_KEY="APE16_STUDIO_V7_AUTOSAVE";
 const $=id=>document.getElementById(id);
 
@@ -16,7 +28,7 @@ const state={
   reference:{img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false},
   genesis:{cells:[],locked:false,revision:1,palette:["#000000","#5b1908","#8a2c0f","#bd4c18","#f2a534","#ffd078","#ffffff"]},
   history:[],redo:[],
-  tool:"pencil",color:"#000000",showGrid:true,showReference:true,
+  tool:"pencil",color:"#000000",showGrid:true,showReference:true,genesisCellSize:10,traitCellSize:10,
   traitReference:{img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false},
   workingTrait:null,
   traitHistory:[],traitRedo:[],traitTool:"pencil",
@@ -154,45 +166,90 @@ function pushHistory(kind){
   else{state.history.push(snapshot(state.genesis.cells));if(state.history.length>60)state.history.shift();state.redo=[]}
 }
 
-function drawGridCanvas(canvas,cells,reference,mask=null,compositeBase=null){
-  const n=state.resolution,ctx=canvas.getContext("2d"),W=canvas.width,H=canvas.height,cw=W/n,ch=H/n;
-  ctx.clearRect(0,0,W,H);ctx.imageSmoothingEnabled=false;
+function configureLogicalCanvas(canvas,cellSize){
+  const n=state.resolution;
+  const px=n*cellSize;
+  if(canvas.width!==px)canvas.width=px;
+  if(canvas.height!==px)canvas.height=px;
+  canvas.style.width=px+"px";
+  canvas.style.height=px+"px";
+}
+
+function drawGridCanvas(canvas,cells,reference,mask=null,compositeBase=null,cellSize=10){
+  const n=state.resolution;
+  configureLogicalCanvas(canvas,cellSize);
+  const ctx=canvas.getContext("2d");
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.imageSmoothingEnabled=false;
 
   if(reference && state.showReference){
-    const tmp=document.createElement("canvas");tmp.width=tmp.height=n;
-    const tx=tmp.getContext("2d");tx.imageSmoothingEnabled=false;
+    const tmp=document.createElement("canvas");
+    tmp.width=tmp.height=n;
+    const tx=tmp.getContext("2d");
+    tx.imageSmoothingEnabled=false;
     fitReference(tx,reference.img,n,reference.scale,reference.x,reference.y,(reference.opacity??55)/100);
-    ctx.drawImage(tmp,0,0,W,H);
+    ctx.drawImage(tmp,0,0,n,n,0,0,n*cellSize,n*cellSize);
   }
+
   if(compositeBase){
     for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-      const i=idx(x,y,n);if(mask&&mask[i])continue;
-      const c=compositeBase[i];if(!c)continue;ctx.fillStyle=rgbaCss(c);ctx.fillRect(x*cw,y*ch,Math.ceil(cw),Math.ceil(ch));
+      const i=idx(x,y,n);
+      if(mask&&mask[i])continue;
+      const c=compositeBase[i];
+      if(!c)continue;
+      ctx.fillStyle=rgbaCss(c);
+      ctx.fillRect(x*cellSize,y*cellSize,cellSize,cellSize);
     }
   }
+
   for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-    const c=cells[idx(x,y,n)];if(!c)continue;ctx.fillStyle=rgbaCss(c);ctx.fillRect(x*cw,y*ch,Math.ceil(cw),Math.ceil(ch));
+    const c=cells[idx(x,y,n)];
+    if(!c)continue;
+    ctx.fillStyle=rgbaCss(c);
+    ctx.fillRect(x*cellSize,y*cellSize,cellSize,cellSize);
   }
+
   if(mask){
     ctx.fillStyle="rgba(255,0,150,.22)";
-    for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(mask[idx(x,y,n)])ctx.fillRect(x*cw,y*ch,Math.ceil(cw),Math.ceil(ch));
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+      if(mask[idx(x,y,n)])ctx.fillRect(x*cellSize,y*cellSize,cellSize,cellSize);
+    }
   }
+
   if(state.showGrid){
-    ctx.strokeStyle="rgba(255,255,255,.17)";ctx.lineWidth=1;
+    ctx.strokeStyle="rgba(255,255,255,.28)";
+    ctx.lineWidth=1;
     ctx.beginPath();
-    for(let i=0;i<=n;i++){const xx=Math.round(i*cw)+.5;ctx.moveTo(xx,0);ctx.lineTo(xx,H);const yy=Math.round(i*ch)+.5;ctx.moveTo(0,yy);ctx.lineTo(W,yy)}
+    for(let i=0;i<=n;i++){
+      const p=i*cellSize+.5;
+      ctx.moveTo(p,0);ctx.lineTo(p,n*cellSize);
+      ctx.moveTo(0,p);ctx.lineTo(n*cellSize,p);
+    }
     ctx.stroke();
   }
 }
-
-function drawEditor(){drawGridCanvas($("editorCanvas"),state.genesis.cells,state.reference)}
+function drawEditor(){
+  drawGridCanvas($("editorCanvas"),state.genesis.cells,state.reference,null,null,state.genesisCellSize);
+}
 function drawTraitEditor(){
-  if(!state.workingTrait){const c=$("traitEditorCanvas"),x=c.getContext("2d");x.clearRect(0,0,c.width,c.height);return}
-  drawGridCanvas($("traitEditorCanvas"),state.workingTrait.cells,state.traitReference,state.workingTrait.mask,state.genesis.cells);
+  const c=$("traitEditorCanvas");
+  configureLogicalCanvas(c,state.traitCellSize);
+  if(!state.workingTrait){c.getContext("2d").clearRect(0,0,c.width,c.height);return}
+  drawGridCanvas(c,state.workingTrait.cells,state.traitReference,state.workingTrait.mask,state.genesis.cells,state.traitCellSize);
 }
 function eventCell(e,canvas){
-  const r=canvas.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/r.width*state.resolution),y=Math.floor((e.clientY-r.top)/r.height*state.resolution);
-  return {x:Math.max(0,Math.min(state.resolution-1,x)),y:Math.max(0,Math.min(state.resolution-1,y))}
+  const r=canvas.getBoundingClientRect();
+  const cellSize = canvas.id==="traitEditorCanvas" ? state.traitCellSize : state.genesisCellSize;
+  const scaleX=canvas.width/r.width;
+  const scaleY=canvas.height/r.height;
+  const localX=(e.clientX-r.left)*scaleX;
+  const localY=(e.clientY-r.top)*scaleY;
+  const x=Math.floor(localX/cellSize);
+  const y=Math.floor(localY/cellSize);
+  return {
+    x:Math.max(0,Math.min(state.resolution-1,x)),
+    y:Math.max(0,Math.min(state.resolution-1,y))
+  };
 }
 
 function sampleReferenceAtCell(reference,x,y){
@@ -233,6 +290,14 @@ $("undoBtn").onclick=()=>{if(!state.history.length)return;state.redo.push(snapsh
 $("redoBtn").onclick=()=>{if(!state.redo.length)return;state.history.push(snapshot(state.genesis.cells));state.genesis.cells=state.redo.pop();drawEditor();scheduleAutosave()};
 $("toggleGrid").onclick=()=>{state.showGrid=!state.showGrid;$("toggleGrid").textContent=state.showGrid?"Grid ON":"Grid OFF";drawEditor();drawTraitEditor()};
 $("toggleReference").onclick=()=>{state.showReference=!state.showReference;$("toggleReference").textContent=state.showReference?"Reference ON":"Reference OFF";drawEditor();drawTraitEditor()};
+$("genesisCellSize").onchange=e=>{
+  state.genesisCellSize=Number(e.target.value);
+  drawEditor();
+};
+$("traitCellSize").onchange=e=>{
+  state.traitCellSize=Number(e.target.value);
+  drawTraitEditor();
+};
 
 $("colorPicker").oninput=e=>{state.color=e.target.value;if(!state.genesis.palette.includes(state.color))state.genesis.palette.push(state.color);renderPalette()};
 $("addPaletteColor").onclick=()=>{if(!state.genesis.palette.includes(state.color))state.genesis.palette.push(state.color);renderPalette()};
@@ -453,6 +518,7 @@ function updateExportAudit(enable=true){
   const issues=[];
   if(!state.resolutionLocked)issues.push("Resolution is not locked.");
   if(!state.genesis.locked)issues.push("Brown Genesis is not approved + locked.");
+  if(state.genesis.cells.length!==state.resolution**2)issues.push("Genesis canvas length does not match locked resolution.");
   const duplicate=new Set(),seen=new Set();
   for(const t of state.traits){
     const k=t.category+"/"+t.name;
@@ -504,7 +570,7 @@ async function maskPngBytes(mask){
 $("exportGeneratorZip").onclick=async()=>{
   if(!updateExportAudit(true))return;
   setStatus("PACKAGING","warn");
-  const entries=[],manifest={format:"APE16_GENERATOR_ASSETS_V1",studioVersion:VERSION,project:state.projectName,supply:state.supply,resolution:state.resolution,layerOrder:LAYER_ORDER,maskSemantics:"Before drawing a trait, erase underlying composite pixels wherever its mask PNG is opaque (destination-out), then draw trait source-over.",generatedAt:new Date().toISOString()};
+  const entries=[],manifest={format:"APE16_GENERATOR_ASSETS_V1",studioVersion:VERSION,project:state.projectName,supply:state.supply,resolution:state.resolution,layerOrder:LAYER_ORDER,anchors:anchorsForResolution(state.resolution),maskSemantics:"Before drawing a trait, erase underlying composite pixels wherever its mask PNG is opaque (destination-out), then draw trait source-over.",generatedAt:new Date().toISOString()};
   // Entry order intentionally matches generator compositing order.
   for(const cat of LAYER_ORDER){
     if(cat==="Body")entries.push({name:`Body/Brown_Genesis.png`,data:await pngBytes(state.genesis.cells)});
