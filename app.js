@@ -2624,7 +2624,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 
 /* ============================================================
-   APE16 V6.5 · INTEGRATED PIXEL CONVERTER
+   APE16 V6.5.1 · INTEGRATED PIXEL CONVERTER
    Non-destructive reference -> flat 64×64 APE16 suggestion.
    ============================================================ */
 (function setupIntegratedAPE16Converter(){
@@ -2718,6 +2718,10 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
       d[i+3]=255;
     }
 
+    // Preserve contrasted source pixels for high-value facial-feature recovery.
+    // This lets the flat-color pass remove shading without erasing eyes/nose/mouth.
+    const featureSource=new Uint8ClampedArray(d);
+
     const paletteCount=Number($id("ape16ConvPalette").value)||7;
     const flat=$id("ape16ConvFlat").checked;
     const pal=quantilePalette(d,paletteCount,flat);
@@ -2733,6 +2737,62 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
         if(dd<bd){bd=dd;best=q}
       }
       d[i]=best[0]; d[i+1]=best[1]; d[i+2]=best[2]; d[i+3]=255;
+    }
+
+    // V6.5.1 FACIAL FEATURE PRESERVATION
+    // APE16 Genesis uses a fixed centered head/shoulder composition. In flat-color
+    // mode, protect intentional facial geometry after quantization:
+    //   • eyes become graphic black/white shapes (no gray shading)
+    //   • dark nose structure survives palette reduction
+    //   • dark mouth pixels survive instead of merging into the muzzle
+    // This is deliberately limited to facial zones so ordinary fur/skin shading
+    // remains simplified.
+    if(flat){
+      const dark=pal[0];
+      const white=[255,255,255];
+      const srcAt=(x,y)=>{
+        const i=(y*64+x)*4;
+        return [featureSource[i],featureSource[i+1],featureSource[i+2],featureSource[i+3]];
+      };
+      const lum=p=>0.2126*p[0]+0.7152*p[1]+0.0722*p[2];
+      const sat=p=>Math.max(p[0],p[1],p[2])-Math.min(p[0],p[1],p[2]);
+      const paint=(x,y,c)=>{
+        const i=(y*64+x)*4;
+        if(d[i+3]===0) return;
+        d[i]=c[0]; d[i+1]=c[1]; d[i+2]=c[2]; d[i+3]=255;
+      };
+
+      // Eyes: remove gray shading. Neutral bright pixels become pure white;
+      // neutral/dark structural pixels become the functional dark color.
+      const eyeZones=[[23,27,30,35],[34,27,41,35]];
+      for(const [x0,y0,x1,y1] of eyeZones){
+        for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+          const p=srcAt(x,y);
+          if(p[3]===0) continue;
+          const L=lum(p), S=sat(p);
+          if(S<55 && L>=145) paint(x,y,white);
+          else if(L<105) paint(x,y,dark);
+        }
+      }
+
+      // Nose: retain only genuinely dark source structure; do not add shading.
+      for(let y=34;y<=39;y++) for(let x=28;x<=36;x++){
+        const p=srcAt(x,y);
+        if(p[3] && lum(p)<100) paint(x,y,dark);
+      }
+
+      // Mouth: recover the source's darkest intentional line pixels.
+      // A slightly higher threshold is used here because the original mouth is
+      // brown/red rather than pure black.
+      let mouth=[];
+      for(let y=40;y<=44;y++) for(let x=27;x<=38;x++){
+        const p=srcAt(x,y);
+        if(p[3] && lum(p)<150) mouth.push([x,y,lum(p)]);
+      }
+      mouth.sort((a,b)=>a[2]-b[2]);
+      // Preserve a compact, deliberate mouth rather than noisy shading.
+      const keep=Math.min(mouth.length,10);
+      for(let k=0;k<keep;k++) paint(mouth[k][0],mouth[k][1],dark);
     }
 
     // Strong exterior outline: only opaque cells adjacent to transparency.
@@ -2819,7 +2879,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   const section=document.createElement("section");
   section.id="ape16IntegratedConverter";
   section.innerHTML=`
-    <h2>APE16 V6.5 · INTEGRATED PIXEL CONVERTER</h2>
+    <h2>APE16 V6.5.1 · INTEGRATED PIXEL CONVERTER</h2>
     <p style="color:#aaa;line-height:1.45">
       Reference → flat high-contrast 64×64 APE16 starting art. Conversion is non-destructive until you explicitly choose <b>Use Conversion as Genesis</b>.
     </p>
