@@ -2624,7 +2624,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 
 /* ============================================================
-   APE16 V6.5.2 · INTEGRATED PIXEL CONVERTER
+   APE16 V6.5.4 · INTEGRATED PIXEL CONVERTER
    Non-destructive reference -> flat 64×64 APE16 suggestion.
    ============================================================ */
 (function setupIntegratedAPE16Converter(){
@@ -2739,15 +2739,11 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
       d[i]=best[0]; d[i+1]=best[1]; d[i+2]=best[2]; d[i+3]=255;
     }
 
-    // V6.5.2 FEATURE-SAFE FLAT PROFILE
-    // Consolidated corrections for APE16:
-    //   • ears use only controlled warm local colors
-    //   • eyes are pure white + functional dark only
-    //   • nose is connected/readable, not fragmented shading
-    //   • mouth is guaranteed to remain visible
-    //   • face/muzzle use two flat warm tones instead of a gradient chain
+    // V6.5.4 "PUNK POP" PROFILE
+    // Approved direction: bold flat colors, no photographic shading, anime ape identity.
+    // This pass simplifies from the SOURCE instead of painting large invented facial patches.
     if(flat){
-      const dark=pal[0];
+      const dark=[8,6,4];
       const white=[255,255,255];
 
       const srcAt=(x,y)=>{
@@ -2762,112 +2758,137 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
         if(d[i+3]===0) return;
         d[i]=c[0]; d[i+1]=c[1]; d[i+2]=c[2]; d[i+3]=255;
       };
-      const avgColor=(x0,y0,x1,y1,filter)=>{
-        let r=0,g=0,b=0,n=0;
+      const avg=(pts)=>{
+        if(!pts.length) return [180,120,70];
+        let r=0,g=0,b=0;
+        for(const p of pts){r+=p[0];g+=p[1];b+=p[2];}
+        return [clamp(r/pts.length),clamp(g/pts.length),clamp(b/pts.length)];
+      };
+      const collect=(x0,y0,x1,y1,pred)=>{
+        const pts=[];
         for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
           const p=srcAt(x,y);
-          if(p[3]===0) continue;
-          if(filter && !filter(p,x,y)) continue;
-          r+=p[0];g+=p[1];b+=p[2];n++;
+          if(p[3] && (!pred || pred(p,x,y))) pts.push(p);
         }
-        if(!n) return [180,125,80];
-        return [clamp(r/n),clamp(g/n),clamp(b/n)];
+        return pts;
       };
-      const shiftLight=(p,delta)=>p.map(v=>clamp(v+delta));
-      const warmClamp=(p)=>{
+      const warm=(p)=>{
         let [r,g,b]=p;
-        if(r<g) r=g+8;
-        if(g<b) g=b+6;
+        // keep warm ape hues; do not allow gray/cyan contamination
+        if(r<g) r=g+10;
+        if(g<b) g=b+8;
         return [clamp(r),clamp(g),clamp(b)];
       };
+      const shift=(p,n)=>p.map(v=>clamp(v+n));
 
-      // Controlled local flat colors.
-      const faceBase=warmClamp(avgColor(24,22,40,43,(p)=>L(p)>125 && S(p)<110));
-      const muzzleBase=warmClamp(shiftLight(faceBase,18));
-      const faceShadow=warmClamp(shiftLight(faceBase,-28));
-      const earBase=warmClamp(avgColor(15,27,22,38,(p)=>L(p)>75));
-      const earLight=warmClamp(shiftLight(earBase,22));
+      // Controlled functional colors derived from the source.
+      const furBase=warm(avg(collect(18,7,47,55,p=>L(p)>55 && L(p)<185 && p[0]>=p[1])));
+      const furDark=warm(shift(furBase,-42));
+      const furLight=warm(shift(furBase,24));
 
-      // FACE / MUZZLE: flat separation with critical feature zones excluded.
-      for(let y=22;y<=43;y++) for(let x=23;x<=41;x++){
+      const skinBase=warm(avg(collect(23,21,41,44,p=>L(p)>130)));
+      const muzzle=warm(shift(skinBase,24));
+      const skinAlt=warm(shift(skinBase,-16));
+
+      const earBase=warm(avg(collect(15,26,22,38,p=>L(p)>95)));
+      const earAlt=warm(shift(earBase,-20));
+
+      // Re-flatten the broad regions SOURCE-DEPENDENTLY.
+      // No large fixed cream patches: each cell is selected by source luminance.
+      const flattenRegion=(x0,y0,x1,y1,c1,c2,cut)=>{
+        for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+          const p=srcAt(x,y);
+          if(!p[3]) continue;
+          paint(x,y,L(p)>=cut?c1:c2);
+        }
+      };
+
+      // Fur/head/neck: 2-3 deliberate tones max.
+      for(let y=6;y<=56;y++) for(let x=12;x<=51;x++){
         const p=srcAt(x,y);
-        if(p[3]===0) continue;
-
-        const inEye=(x>=23&&x<=30&&y>=27&&y<=35)||(x>=34&&x<=41&&y>=27&&y<=35);
-        const inNose=(x>=28&&x<=36&&y>=34&&y<=39);
-        const inMouth=(x>=26&&x<=39&&y>=40&&y<=44);
-        if(inEye||inNose||inMouth) continue;
-
-        const muzzle=((x>=27&&x<=37&&y>=33&&y<=43) || (x>=29&&x<=36&&y>=30&&y<=34));
-        if(muzzle) paint(x,y,muzzleBase);
-        else if(L(p)<105) paint(x,y,faceShadow);
-        else paint(x,y,faceBase);
+        if(!p[3]) continue;
+        const l=L(p);
+        // avoid facial/ear regions; handled below
+        const face=(x>=22&&x<=42&&y>=20&&y<=45);
+        const ears=((x>=14&&x<=22&&y>=25&&y<=39)||(x>=42&&x<=50&&y>=25&&y<=39));
+        if(face||ears) continue;
+        if(l<80) paint(x,y,dark);
+        else if(l<125) paint(x,y,furDark);
+        else if(l>178) paint(x,y,furLight);
+        else paint(x,y,furBase);
       }
 
-      // EARS: eliminate random red/yellow/gray speckling.
-      const earZones=[[15,26,22,38],[42,26,49,38]];
-      for(const [x0,y0,x1,y1] of earZones){
+      // Face: two flat tones chosen by source lightness, not invented geometry.
+      flattenRegion(22,20,42,45,skinBase,skinAlt,150);
+
+      // Muzzle: only lighten cells that are already among the lighter source pixels
+      // in the central lower-face region. This preserves the anime face shape.
+      for(let y=32;y<=44;y++) for(let x=26;x<=38;x++){
+        const p=srcAt(x,y);
+        if(!p[3]) continue;
+        if(L(p)>145) paint(x,y,muzzle);
+      }
+
+      // Ears: clean 2-tone, plus dark source details. No speckles.
+      const ears=[[14,25,22,39],[42,25,50,39]];
+      for(const [x0,y0,x1,y1] of ears){
         for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
           const p=srcAt(x,y);
-          if(p[3]===0) continue;
-          const l=L(p);
-          if(l<95) paint(x,y,dark);
-          else if(l>175) paint(x,y,earLight);
-          else paint(x,y,earBase);
+          if(!p[3]) continue;
+          if(L(p)<100) paint(x,y,dark);
+          else paint(x,y,L(p)>160?earBase:earAlt);
         }
       }
 
-      // EYES: graphic black/white only.
-      const eyeZones=[[23,27,30,35],[34,27,41,35]];
-      for(const [x0,y0,x1,y1] of eyeZones){
+      // Eyes: pure white + black only; zero gray shading.
+      const eyes=[[23,27,30,35],[34,27,41,35]];
+      for(const [x0,y0,x1,y1] of eyes){
         for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
           const p=srcAt(x,y);
-          if(p[3]===0) continue;
-          const l=L(p);
-          if(l>=138 && S(p)<80) paint(x,y,white);
-          else if(l<150) paint(x,y,dark);
+          if(!p[3]) continue;
+          if(L(p)>145 && S(p)<85) paint(x,y,white);
+          else if(L(p)<160) paint(x,y,dark);
         }
       }
 
-      // NOSE: preserve real source structure + guarantee a connected core.
-      let nosePts=[];
+      // Brows/critical eye framing: retain genuinely dark source pixels.
+      for(let y=24;y<=30;y++) for(let x=22;x<=42;x++){
+        const p=srcAt(x,y);
+        if(p[3] && L(p)<95) paint(x,y,dark);
+      }
+
+      // Nose: simple centered horizontal-nostril ape nose.
+      // Preserve any strong source nose structure first.
       for(let y=34;y<=39;y++) for(let x=28;x<=36;x++){
         const p=srcAt(x,y);
-        if(p[3] && L(p)<135) nosePts.push([x,y,L(p)]);
+        if(p[3] && L(p)<115) paint(x,y,dark);
       }
-      nosePts.sort((a,b)=>a[2]-b[2]);
-      for(const [x,y] of nosePts.slice(0,14)) paint(x,y,dark);
+      // Then guarantee a clean, readable center shape:
+      // short bridge/top + two horizontal nostrils, not vertical dots.
+      const noseShape=[
+        [31,35],[32,35],[33,35],[34,35],
+        [30,36],[31,36],[34,36],[35,36],
+        [30,37],[31,37],[34,37],[35,37],
+        [32,38],[33,38]
+      ];
+      for(const [x,y] of noseShape) paint(x,y,dark);
 
-      const forcedNose=[[30,36],[31,36],[34,36],[35,36],[32,35],[33,35]];
-      for(const [x,y] of forcedNose) paint(x,y,dark);
-
-      // MOUTH: preserve source dark pixels, then guarantee a readable center line.
-      let bestRow=42,bestScore=1e9;
+      // Mouth: simple horizontal graphic line based on the source mouth zone.
+      // Use one deliberate line; do not convert lip shading.
+      let mouthY=42;
+      let best=1e9;
       for(let y=40;y<=44;y++){
-        let vals=[];
+        let score=0,n=0;
         for(let x=27;x<=38;x++){
           const p=srcAt(x,y);
-          if(p[3]) vals.push(L(p));
+          if(p[3]){score+=L(p);n++;}
         }
-        if(vals.length){
-          vals.sort((a,b)=>a-b);
-          const score=vals.slice(0,Math.min(5,vals.length)).reduce((a,b)=>a+b,0);
-          if(score<bestScore){bestScore=score;bestRow=y;}
-        }
+        if(n && score/n<best){best=score/n;mouthY=y;}
       }
-
-      let mouthPts=[];
-      for(let y=40;y<=44;y++) for(let x=26;x<=39;x++){
-        const p=srcAt(x,y);
-        if(p[3] && L(p)<165) mouthPts.push([x,y,L(p)]);
-      }
-      mouthPts.sort((a,b)=>a[2]-b[2]);
-      for(const [x,y] of mouthPts.slice(0,10)) paint(x,y,dark);
-
-      const mouthY=Math.max(40,Math.min(43,bestRow));
       for(let x=29;x<=35;x++) paint(x,mouthY,dark);
-      paint(28,mouthY-1,dark);
-      paint(36,mouthY-1,dark);
+
+      // Clean exterior outline color is near-black, but only actual exterior edge cells
+      // will be touched by the outline pass below.
     }
 
     // Strong exterior outline: only opaque cells adjacent to transparency.
@@ -2877,7 +2898,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
         if(x<0||y<0||x>=64||y>=64) return 0;
         return copy[(y*64+x)*4+3];
       };
-      const dark=pal[0];
+      const dark=[8,6,4];
       for(let y=0;y<64;y++) for(let x=0;x<64;x++){
         const i=(y*64+x)*4;
         if(copy[i+3]===0) continue;
@@ -2894,7 +2915,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
     $id("ape16ConvUseGenesis").disabled=false;
     $id("ape16ConvExport64").disabled=false;
     $id("ape16ConvStatus").textContent=
-      `Conversion ready · V6.5.2 feature-safe flat profile · ${paletteCount} colors · review ears, eyes, nose, mouth before using as Genesis`;
+      `Conversion ready · V6.5.4 Punk Pop profile · ${paletteCount} colors · review whole character before using as Genesis`;
   }
 
   function downloadCanvas(canvas,size,name){
@@ -2954,7 +2975,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   const section=document.createElement("section");
   section.id="ape16IntegratedConverter";
   section.innerHTML=`
-    <h2>APE16 V6.5.2 · INTEGRATED PIXEL CONVERTER</h2>
+    <h2>APE16 V6.5.4 · INTEGRATED PIXEL CONVERTER</h2>
     <p style="color:#aaa;line-height:1.45">
       Reference → flat high-contrast 64×64 APE16 starting art. Conversion is non-destructive until you explicitly choose <b>Use Conversion as Genesis</b>.
     </p>
@@ -2965,11 +2986,11 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
         <label>X <input id="ape16ConvX" type="number" value="0" style="width:70px"></label>
         <label>Y <input id="ape16ConvY" type="number" value="0" style="width:70px"></label>
       </div>
-      <label>Simplification <input id="ape16ConvSimplify" type="range" min="1" max="10" value="8"> <span id="ape16ConvSimplifyOut">8</span></label>
-      <label>Contrast <input id="ape16ConvContrast" type="range" min="0" max="10" value="8"> <span id="ape16ConvContrastOut">8</span></label>
-      <label>Outline strength <input id="ape16ConvOutline" type="range" min="0" max="10" value="8"> <span id="ape16ConvOutlineOut">8</span></label>
+      <label>Simplification <input id="ape16ConvSimplify" type="range" min="1" max="10" value="5"> <span id="ape16ConvSimplifyOut">5</span></label>
+      <label>Contrast <input id="ape16ConvContrast" type="range" min="0" max="10" value="7"> <span id="ape16ConvContrastOut">7</span></label>
+      <label>Outline strength <input id="ape16ConvOutline" type="range" min="0" max="10" value="4"> <span id="ape16ConvOutlineOut">4</span></label>
       <label>Palette size <input id="ape16ConvPalette" type="range" min="5" max="9" value="7"> <span id="ape16ConvPaletteOut">7</span></label>
-      <label>White cutoff <input id="ape16ConvCutoff" type="range" min="220" max="255" value="242"> <span id="ape16ConvCutoffOut">242</span></label>
+      <label>White cutoff <input id="ape16ConvCutoff" type="range" min="220" max="255" value="240"> <span id="ape16ConvCutoffOut">240</span></label>
       <label><input id="ape16ConvFlat" type="checkbox" checked> Flat-color mode — suppress unnecessary shading</label>
       <button id="ape16ConvConvert" type="button" style="font-weight:900">CONVERT TO APE16</button>
     </div>
