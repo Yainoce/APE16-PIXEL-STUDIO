@@ -2625,7 +2625,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 
 /* ============================================================
-   APE16 V6.6.3 · GENESIS LOCK + TRAIT EXTRACTOR
+   APE16 V6.6.4 · GENESIS LOCK + TRAIT EXTRACTOR
    Preserve approved artwork; normalize it into a true logical
    pixel master and export exact integer-scaled production PNGs.
    ============================================================ */
@@ -2724,7 +2724,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
     const im=tx.getImageData(0,0,n,n);
     const d=im.data;
 
-    // V6.6.3 trait extraction: remove reference background and keep only the
+    // V6.6.4 trait extraction: remove reference background and keep only the
     // category zone. This prevents the base ape from being baked into a trait PNG.
     const category=$id("ape16TraitCategory")?.value || "Headwear";
     if(mode==="trait") {
@@ -2958,7 +2958,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   const section=document.createElement("section");
   section.id="ape16IntegratedConverter";
   section.innerHTML=`
-    <h2>APE16 V6.6.3 · GENESIS LOCK + TRAIT EXTRACTOR</h2>
+    <h2>APE16 V6.6.4 · GENESIS LOCK + TRAIT EXTRACTOR</h2>
     <p style="color:#aaa;line-height:1.45">
       Genesis Locked mode reproduces the approved Brown master <b>pixel-for-pixel</b>. Trait Extract mode accepts a full ape-with-trait reference, isolates the selected trait onto transparency, snaps it to the 128×128 APE16 grid, and previews/exports a generator-ready layer.
       It snaps the source to a true logical grid, removes soft alpha/anti-aliasing,
@@ -3086,7 +3086,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 
 /* ============================================================
-   APE16 V6.6.3 · TRAIT REVIEW + APPROVAL GATE
+   APE16 V6.6.4 · TRAIT REVIEW + APPROVAL GATE
    Required workflow:
    Upload reference -> extract trait -> Trait Only -> Composite Preview
    -> inspect -> approve -> save/export.
@@ -3108,7 +3108,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
   wrap.innerHTML=`
     <div style="font-weight:900;font-size:15px;margin-bottom:5px">
-      APE16 V6.6.3 · TRAIT REVIEW GATE
+      APE16 V6.6.4 · TRAIT REVIEW GATE
     </div>
     <p style="color:#aaa;font-size:12px;line-height:1.45;margin:0 0 12px">
       A trait cannot be approved until both the transparent Trait Only layer and the locked-Genesis Composite Preview are reviewed.
@@ -3361,5 +3361,253 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
   // Initial draw if trait state already exists.
   setTimeout(refreshReview,150);
+})();
+
+
+
+
+/* ============================================================
+   APE16 V6.6.4 · STREAMLINED TRAIT WORKFLOW
+   ============================================================ */
+(function setupAPE16StreamlinedTraitWorkflow(){
+  const $id=id=>document.getElementById(id);
+  if(document.getElementById("ape16StreamlinedTraitWorkflow")) return;
+
+  const converter=[...document.querySelectorAll("section")]
+    .find(s=>/CONVERTER/i.test(s.textContent) && /Trait/i.test(s.textContent));
+  const architecture=[...document.querySelectorAll("section")]
+    .find(s=>/NFT TRAIT ARCHITECTURE/i.test(s.textContent));
+
+  if(!converter || !architecture) return;
+
+  architecture.style.display="none";
+  const oldGate=document.getElementById("ape16TraitReviewGate");
+  if(oldGate) oldGate.style.display="none";
+
+  const card=document.createElement("section");
+  card.id="ape16StreamlinedTraitWorkflow";
+  card.innerHTML=`
+    <h2>APE16 V6.6.4 · TRAIT WORKFLOW</h2>
+    <p style="color:#aaa;line-height:1.45">
+      One-screen production flow. Brown Genesis stays locked. Upload a full ape-with-trait reference,
+      convert once, inspect the isolated trait and final composite, then approve.
+    </p>
+
+    <div style="display:grid;gap:12px">
+      <label>Trait category
+        <select id="ape16QuickTraitCategory" style="margin-left:8px">
+          <option value="Headwear" selected>Headwear</option>
+          <option value="Eyes">Eyes</option>
+          <option value="Mouth">Mouth</option>
+          <option value="Clothing">Clothing</option>
+          <option value="Accessory">Accessory</option>
+          <option value="Body">Body</option>
+          <option value="Background">Background</option>
+        </select>
+      </label>
+      <input id="ape16QuickTraitFile" type="file" accept="image/png,image/webp,image/jpeg">
+      <button id="ape16QuickConvertTrait" type="button" style="font-weight:900">CONVERT TRAIT</button>
+      <div id="ape16QuickStatus" style="color:#e3bf68;font-size:12px;font-weight:800">
+        Choose an ape-with-trait reference.
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px">
+      <div>
+        <div style="font-size:12px;font-weight:900;margin-bottom:6px">TRAIT ONLY</div>
+        <div style="background:
+          linear-gradient(45deg,#bbb 25%,transparent 25%),
+          linear-gradient(-45deg,#bbb 25%,transparent 25%),
+          linear-gradient(45deg,transparent 75%,#bbb 75%),
+          linear-gradient(-45deg,transparent 75%,#bbb 75%);
+          background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:white">
+          <canvas id="ape16QuickTraitOnly" width="384" height="384"
+            style="display:block;width:100%;image-rendering:pixelated"></canvas>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:900;margin-bottom:6px">FINAL COMPOSITE</div>
+        <div style="background:
+          linear-gradient(45deg,#bbb 25%,transparent 25%),
+          linear-gradient(-45deg,#bbb 25%,transparent 25%),
+          linear-gradient(45deg,transparent 75%,#bbb 75%),
+          linear-gradient(-45deg,transparent 75%,#bbb 75%);
+          background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:white">
+          <canvas id="ape16QuickComposite" width="384" height="384"
+            style="display:block;width:100%;image-rendering:pixelated"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button id="ape16QuickApprove" type="button" disabled>Approve + Lock Trait</button>
+      <button id="ape16QuickExport128" type="button" disabled>Export 128×128 Trait</button>
+      <button id="ape16QuickExport4096" type="button" disabled>Export 4096 Trait</button>
+      <button id="ape16QuickNext" type="button" disabled>Next Trait</button>
+      <button id="ape16QuickAdvanced" type="button">Advanced / Edit</button>
+    </div>
+    <div id="ape16QuickAdvancedPanel" style="display:none;margin-top:12px;padding:10px;border:1px solid #333;border-radius:10px;color:#aaa;font-size:12px">
+      Advanced editing uses the existing V6 Trait Architecture below only when needed.
+    </div>
+  `;
+  converter.parentNode.insertBefore(card,converter);
+  converter.style.display="none";
+
+  const getV6=()=>{
+    const V6=window.APE16_V6;
+    if(!V6 || !Array.isArray(V6.trait) || !Array.isArray(V6.mask)) return null;
+    const n=Math.round(Math.sqrt(V6.trait.length));
+    if(n*n!==V6.trait.length) return null;
+    return {V6,n};
+  };
+
+  function traitCanvas(V6,n){
+    const c=document.createElement("canvas"); c.width=c.height=n;
+    const x=c.getContext("2d"); x.imageSmoothingEnabled=false;
+    for(let i=0;i<n*n;i++){
+      const v=V6.trait[i]; if(!v) continue;
+      x.fillStyle=`rgba(${v[0]},${v[1]},${v[2]},${(v[3]??255)/255})`;
+      x.fillRect(i%n,Math.floor(i/n),1,1);
+    }
+    return c;
+  }
+
+  function compositeCanvas(V6,n){
+    const c=document.createElement("canvas"); c.width=c.height=n;
+    const x=c.getContext("2d"); x.imageSmoothingEnabled=false;
+    for(let i=0;i<n*n;i++){
+      if(V6.mask[i]) continue;
+      const g=state.cells?.[i]; if(!g) continue;
+      x.fillStyle=`rgba(${g[0]},${g[1]},${g[2]},${(g[3]??255)/255})`;
+      x.fillRect(i%n,Math.floor(i/n),1,1);
+    }
+    for(let i=0;i<n*n;i++){
+      const v=V6.trait[i]; if(!v) continue;
+      x.fillStyle=`rgba(${v[0]},${v[1]},${v[2]},${(v[3]??255)/255})`;
+      x.fillRect(i%n,Math.floor(i/n),1,1);
+    }
+    return c;
+  }
+
+  function drawPreview(source,id){
+    const c=$id(id),x=c.getContext("2d");
+    x.clearRect(0,0,c.width,c.height); x.imageSmoothingEnabled=false;
+    x.drawImage(source,0,0,c.width,c.height);
+  }
+
+  function refreshQuickReview(){
+    const s=getV6(); if(!s) return false;
+    let painted=0; for(const v of s.V6.trait) if(v) painted++;
+    if(!painted) return false;
+    drawPreview(traitCanvas(s.V6,s.n),"ape16QuickTraitOnly");
+    drawPreview(compositeCanvas(s.V6,s.n),"ape16QuickComposite");
+    $id("ape16QuickApprove").disabled=false;
+    $id("ape16QuickExport128").disabled=false;
+    $id("ape16QuickExport4096").disabled=false;
+    $id("ape16QuickStatus").textContent=
+      `REVIEW READY · ${painted} trait cells · ${s.n}×${s.n} · inspect both views`;
+    return true;
+  }
+
+  function handoffExtractedTrait(){
+    const source=$id("ape16ConvPreview");
+    const s=getV6();
+    if(!source || !s) return false;
+    const temp=document.createElement("canvas");
+    temp.width=temp.height=s.n;
+    const tx=temp.getContext("2d",{willReadFrequently:true});
+    tx.imageSmoothingEnabled=false;
+    tx.clearRect(0,0,s.n,s.n);
+    tx.drawImage(source,0,0,s.n,s.n);
+    const d=tx.getImageData(0,0,s.n,s.n).data;
+    s.V6.trait=new Array(s.n*s.n).fill(null);
+    for(let p=0;p<s.n*s.n;p++){
+      const i=p*4;
+      if(d[i+3]===0) continue;
+      s.V6.trait[p]=[d[i],d[i+1],d[i+2],255];
+    }
+    s.V6.mask=new Array(s.n*s.n).fill(false);
+    if($id("ape16QuickTraitCategory").value==="Headwear"){
+      for(let p=0;p<s.n*s.n;p++) if(s.V6.trait[p]) s.V6.mask[p]=true;
+    }
+    return true;
+  }
+
+  function runConversion(){
+    const file=$id("ape16QuickTraitFile").files?.[0];
+    if(!file){ $id("ape16QuickStatus").textContent="Choose an ape-with-trait reference first."; return; }
+
+    const oldFile=$id("ape16ConvFile");
+    const oldMode=$id("ape16ConvMode");
+    if(!oldFile || !oldMode){ $id("ape16QuickStatus").textContent="Trait extractor not found."; return; }
+
+    oldMode.value=[...oldMode.options].find(o=>/trait/i.test(o.textContent))?.value || "trait";
+
+    try{
+      const dt=new DataTransfer(); dt.items.add(file);
+      oldFile.files=dt.files;
+      oldFile.dispatchEvent(new Event("change",{bubbles:true}));
+    }catch(e){
+      $id("ape16QuickStatus").textContent="Browser blocked automatic file handoff. Open Advanced once and select the same file.";
+      return;
+    }
+
+    $id("ape16QuickStatus").textContent="Converting trait…";
+    setTimeout(()=>{
+      const btn=$id("ape16ConvConvert");
+      if(!btn){ $id("ape16QuickStatus").textContent="Converter action not found."; return; }
+      btn.click();
+      setTimeout(()=>{
+        if(!handoffExtractedTrait()){ $id("ape16QuickStatus").textContent="Extraction completed but handoff failed."; return; }
+        if(!refreshQuickReview()) $id("ape16QuickStatus").textContent="Handoff completed but no trait pixels detected.";
+      },550);
+    },400);
+  }
+
+  function exportTrait(size){
+    const s=getV6(); if(!s) return;
+    const src=traitCanvas(s.V6,s.n);
+    const out=document.createElement("canvas"); out.width=out.height=size;
+    const x=out.getContext("2d"); x.imageSmoothingEnabled=false;
+    x.drawImage(src,0,0,size,size);
+    out.toBlob(blob=>{
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=`APE16_${$id("ape16QuickTraitCategory").value}_Trait_${size}x${size}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1200);
+    },"image/png");
+  }
+
+  $id("ape16QuickConvertTrait").addEventListener("click",runConversion);
+  $id("ape16QuickApprove").addEventListener("click",()=>{
+    const existing=[...document.querySelectorAll("button")]
+      .find(b=>/Approve.*Lock Trait/i.test(b.textContent) && b.id!=="ape16QuickApprove");
+    if(existing) existing.click();
+    window.APE16_TRAIT_APPROVED=true;
+    $id("ape16QuickNext").disabled=false;
+    $id("ape16QuickStatus").textContent="TRAIT APPROVED + LOCKED · ready for next trait";
+  });
+  $id("ape16QuickExport128").addEventListener("click",()=>exportTrait(128));
+  $id("ape16QuickExport4096").addEventListener("click",()=>exportTrait(4096));
+  $id("ape16QuickNext").addEventListener("click",()=>{
+    $id("ape16QuickTraitFile").value="";
+    ["ape16QuickApprove","ape16QuickExport128","ape16QuickExport4096","ape16QuickNext"]
+      .forEach(id=>$id(id).disabled=true);
+    const s=getV6();
+    if(s){ s.V6.trait=new Array(s.n*s.n).fill(null); s.V6.mask=new Array(s.n*s.n).fill(false); }
+    ["ape16QuickTraitOnly","ape16QuickComposite"].forEach(id=>{
+      const c=$id(id),x=c.getContext("2d"); x.clearRect(0,0,c.width,c.height);
+    });
+    $id("ape16QuickStatus").textContent="Choose the next ape-with-trait reference.";
+  });
+  $id("ape16QuickAdvanced").addEventListener("click",()=>{
+    const panel=$id("ape16QuickAdvancedPanel");
+    const open=panel.style.display==="none";
+    panel.style.display=open?"block":"none";
+    architecture.style.display=open?"block":"none";
+    converter.style.display=open?"block":"none";
+    $id("ape16QuickAdvanced").textContent=open?"Hide Advanced":"Advanced / Edit";
+  });
 })();
 
