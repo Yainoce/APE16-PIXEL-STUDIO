@@ -2625,12 +2625,14 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 
 /* ============================================================
-   APE16 V6.6 · CLEAN PIXEL ART CONVERTER
+   APE16 V6.6.1 · GENESIS LOCK + TRAIT CONVERTER
    Preserve approved artwork; normalize it into a true logical
    pixel master and export exact integer-scaled production PNGs.
    ============================================================ */
 (function setupAPE16V66Converter(){
   const $id=id=>document.getElementById(id);
+  const APE16_GENESIS_MASTER_DATA="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAATC0lEQVR4nO1dTYgcxxV+3TOaGe8u++MVPghZS9ZggsFL7DiYEJDQGsVESELYJugURA45+RDQRac48kkX3QyBnExOJjjGSELBDl4h5xBMTOSswAeBFCQLH4wn+8NqMzM705XDzKt5/eZV9c/0r3Y+EJqd6a6urvf/6lUVwAQTTLB/4eTdgYygLL/tlzEQsV9eXh2br8BCdfi6PaXgWrOHf+6XcRhBNe8OpAgt9W8faUC96o5e0dzNsj+FxJPMABqc+O2ul1NPiocnSfX57PyF5amRC778bxtmKzBR/QRPrAZodz0t+c1WV3+/rWk/IT7Ak8EACsAv8ZT47a4HzXYPtnsAtzbjSf7q6nG1tnYzyi2lYa4ngQFGUK+6cG+7Az1li/4mACgRpwoYkXyKu1tt/Rlt/t7tS3DgpXekd7ZyyunFCizWK6E6NVN14b2HLfyz8ONbNA2AhCjUwFWc4O7MDEyOGG4WGIUaaAhmAGtsf3erDRXH8an+B489WG+NCDi2rwAAzh+qxe7wTNWFna4Hi40qXLmv8wpFG1cjiqYB4PyhGrz/bcfHCHu3LykAgAMvvaOvo04eR8VxYKObvv3/z24PAHoD57KT+vPSQOEYYEZQoUj4t480qH2FdteDB4/3AGCoplH6N1p9xlhvKXj7SMPX3nsPW7Ekf7Pj8RQyR2kkH1Eag7XS8I8tl3xJ7SPxUVvsjJEBROI/eOyN9KXMyEsDcP2sR5QRSQHAiAQDgJZ8iiDV32z3oNnuS28QEfE6jqXpPjMdfeaA7u/732r1Lz280NxSOBMgoV51tcSfPViFnlIjzh6CJHvgwvKUvo86jEh8dOAQzXZPt7vdA5i1RH53tvfgB1MVI6OUBZkyAGbUkDBIlCv3dzUlNztDgpw/VIOZAfGRCZDolPjU/p89WIXnZoe2HZ9xb7svpQ8ee7A806fsTteDmaoLn383zBnwiOH0opkLiOQDQF9TcTNDHFqKwmiFTDvyweVTCgDg3MXrsNJwYGna9antW5s9ODZf0VLMVf+j3X5OH4lPCf/g8XDgTxx6Sn9utrrafgfhwWMPjj5T139T9U4ZAZ3Aswf98nN4qqrvQ3AtAwDw8Ic/05/X1m7mygyZaoBzF6/r+Hu9pWBpuk+82Uq4ZAvCdu1Cw+/XoormUQJ+x5kJiSVFIxxIcA56L2oZ+jnivEKqyFsVKYC+dLHJGgAYagCUfAr0A+7vDO85+kzdZ+tR7dPreRsUFceB+ZrL07k+oCZA5pHapN/xZyxND53HIiSPCuEEVhwHFkL0hA6u5ASakkMSoUzth5F8fo+pnxKDIWaIY5sn8tYACAUAoJQCRyDU6cWKT+KozUenjcb7VPI5JP9BwvNzdU0gSRvYnEOElDASklL4cV9qAN/oS8RH2EI/gOEUML1WgvS95AsESWeQRinLVHTeGiDUKGHsDyBLFUBfsrivYLLHNhtNf+8pFagJbEBpp/fRdwHo+wT1qou+QOb0yIMBfDN6Njza7Qbl3n1t4PUcJmmlWoUSnZsbhK0fNOnEgd4/MsJKw4GFhguzFYDFegU2Ox58/H0XVlePY4SQGV3yNgE+SE6ciXho86UkUdiQkmsCW5RQcRxdGMITQLT/EhNwx3Kh4cJGy4PZaVfnKE4vVqCy/vdQ/U4SWTCATyRNUk+ll0qjSepouNfuevBot6slNqzXj8+g99mk/PSiP/VL34VWIHGfAkNLbhLWW/22js1XYLaSj9+QJgPoKVdaLUMlhGf2KD7+fmjPaRsIlHxu96MklPD6sAzDmUMyOTxM7SkFzXYPNjueThzxae24fU8CqWsAW1xt4nj+/WKjOqJaJXUr2fQwoBKL6V3KgBxhQkAJ1GRJyEMDpMVyik74IKEwzUrVKA7+tWZPZwQ3Wh68/PQBH/PQSl+bFz+uFEmpYpR87B8CZwulMFJqE7OAxOvXWGk4sDxTyXzNYqoaoF71F0qiygzjZR8VVL7krUtePEB0RgiTKkbmRCduYcavCYLSwmGQtRlI+mliqTat0bfN4HGVTu27jchBOXnTZw6TCpYcQ15QglPMtr7QySP0AejsJ4Ax55EaV6ReEsYlF8Hr7G2ZN1oDwInEvXhE1IiAahR6fRSJND2Lf0d9gFubPR8z9ZSCxXolM02QqglotrrGmBlA9u6lUi8KW5hGgc5cUKyP4N9TjYFOH332aKn58DesczCBMbtD27rW7CnSVupckJoJsExzKprEQdCQUKrtB/APevfWWyMPrx770NgxZAgbE9g8fw58Pj7TZBIkHJ6q0moo/Hp/TQaZVD73qE122duKvrmDLeyMqnL58ylzBhWcjlOdnDRS0QABbStTqRcFLfigg9u5ejJUR2pnblh/5+VcpsmmMM/jz8JcPwD4tqWhwLrFvDVA0k6gQ/6FgikpYpP+JBA2f+DOyYtPKSSJx4UpRUcus4G01MuU2JHsfljp5zjxq09Gys1okYkEqgm6t94KZXJQE1CGkHwBnGYGyF8D5D4bKHnfnChxCY/4259e15+RSGGjic7Vk7H8DRvyyPmbkNvSsHrVNUpfkQYoDnBZWhmQ10grAP8qHwqaDx9X+vMANwWSGSAh5/5ZF8BBM3yIIOnnTlnS6jkN8NxGkTRc4gxg2VAp8K3DTOXakj1paQtbSGlzENdbClYazmCdoZ34uAcChWE7m0SRqwbgDh8SP+7mDh99PXRp3nhhvDCMtjUuNloewKAG0MTgdPOLLJE0A6i1tZuiJNbO3BjZ/kXK+NGVPlFx7uJ1/XlcbUDbiouVhqOdwRXo1wAKUAByf6UxSxpJMcBYLi+fGrYBB8qdm4IP/9EyEgrVdlRGCMog8jaj+CBSbiNvJKoBbIPduXoSPvrahXMXr+u3xwFZkiXDiv7Al2aDEyOCxgxAa4JUtEAiDEDq2QEA4Je//lTbcZqEeeMFDzpXT45IWVjp58D2EJL0RtEEJumPqkXCbCHzweVTI37KR1+78IfLf4XZSr/6iI5dWkjFCYwyrVoGuHNTmYWbPGWdNpJgAPXpO4vg/VaWEpsEageJOksW6QmS0CBtEAWSnR9HQwTZfVt/B1ozFYcw1TCQEpaic/UkuHNTOqaXiG9jBDWIGLpfvQsHXnpHHLw4UUBYBsLn2xazBj+nGLOFqXlRF5an4Ms//0L/XTtzY2ypfBLBxyXr1HfqbnTn6kmxfMvb2h152ajhUfVHv9PSyBGX4Wz3KaWMzwsLE4G7t94SxyltpMYA9JCGrPP1q6vHYXX1OADEy+itNBx9f1bwtnZzmddIPRXMpSlugiYKPvtsDQD6NhoTRVHCwH//r2+fX3ttNbUNnfIYFwmJaACJcxcbyfBWmJKsosCdmwrsb9HeJwkqORii0HCsduYGXDlzY4SjkdNNdhazgpgcqh77sDQ1AbREHN8Dl4DzaxDS+BjGrDyZwHEx7nx53PAsqfvLhEQYAHe75JpAgkkjUPSU0qtr1lvlyyra5jaiaDMyNoWfDYwFSnxaS081wErD8TlIRbKhe7cvgfrmC7EaGIHvhSleScXnidyrghFcarA+YHmm4tMC3tYuYIVd1qoan4e5APXNF77f6TsgE8eZ6cwShWEAWhRiWvGL6H71btbdi/R8WtqW9gKXcZFZHkBSe3xq2LTzB1YPD9sa3p8kwraHki+pfrpHEP/O9oy80uSpMQApZgh1PU4h02XdUtUwQLbTsxIkP2ShIS8Jjzo1nrV/kDQD6GhAKniICq4R8JCnoNyA8+yrYz1Xt7N9R2Q0b2sXamduaMmndl7aySQqsvD+EZn5AOOkOnEgcVNF01RxUoRHqNkXwZkddfYAwHfgBfdd+HW2Sa68Z0hTZ4CopkCCJFHcDEjEl0qt925fCryOX+M8+6rIBHG2pDMhr9Cw2DHKADQa6CeHlCZ+mPy7Dc72ndDX0uestxRsdO07mJcBadqYkazgoCpYvJhv2ICghMc1A1hoEkblR11wIWkIDhoF0P39bJrA5AxmmfeXkMWDfIxApYhOjOB6fSQy3XYNJ4b+9cmb/QZnX4zcCcoISGTpuyhA7fHy638BAP/mUPge+B1lAJrRFOoNM81uZZ4IsoVvfJkYgD8SwHud2ZQ6FxHSu4TZcNJ0bx7IggECJ4pWGs7I2oCkbeve7UtGcxBH+iVIziq+lykayEvyEYVJBfPKYKpCk8Le7UvgbN/R69iSIjwFX9sYptw9T2TJAD5NANBfHQMQfiFmEhnAOP6DCVH6s95Sus6QhcS5ckYum0QJz1coIXy/PdyYmf6WhuTGAZoU7Dv2VdozcPCdfl/SzL7bISTSC5dluzUAua/6JFN/aVhh7EFhEkGSrS/SMuqw4H2erZg3iywCCsMAFccZOff3ScF8rbjvVZQowPn4e70vjGQnywgHwLf7dyHVQFEYAD64fArefP0nI7H60rQ7kiNQ33wB7tyU1aMfd88dm6NpmiZemnZHysClrGORUBgGOHfxugMkHMSQ6draTTg2XxlxsLyt3dwyghLxFxouXGv2dL+xTD6Lnb7GQaE7N4A6e7Bq3TU86ToAE6jk84rm5ZkK5vvLMKYahdEAFlD/QINPpmQF3JyKor81bLdUhEeUpdNGhzALTUCLQUyFLYO5hrKMp0Zx4xM/9BkE5w/VCpNXPzav9wB2ykh8gPJoAIQ6e7AKG101splSGprAJvl4iOSgH2UbR42yaACN+ZoLrzxdh5WG49MEtTM3Et3eFeHOTY04fCsNB56fq8OLswcSf17WKIMT6IN0jjCHVMCZNNpdr1CHP8VFWVSXAvCfM4jnCyZ5tAwHl3yAYanac7M1zYjkJPCyjKdGqTQAP2SSryJGJki61p6f7IkwHXhVJpT2DYpWjp31plJJoVQaICxMYSKfqpWui1vC9ZufT8PaWqRbCoHSMgDdPwCgX4tH7fQ45w6YEHQmcBlRdAbwHUdPvX/b6eB0ixnKCFLZWVRIz7uwPAX//OOa7i+UyBkshQ/Awz4p/KIVRQ8ee7EkFc/44ep/adrVDIXtNlvdwHC0DCgyA2gxxZPG61UXdroeNNt9qaYEkYCaYNxKI6nef7Pj2aKA4ninASi6CdCoV124t92JdA8SbmNQpEErjCUEOX6c2bA/9Dj4sqFItsonNfSEcTxjmIJKJV+PB+A/rJHbbVynF8bTlw595MD2MTlUr7r0TGDcR7FIY61RWLZFieKSJZ01HARp04Ykge0j8cuEonClevtIw2frAYYqlp8saluKvdFVsNHyAiU37EllYTQAbRM1AcXdrTYehVuU8dbIm10VDKZ4kfiIprBDaFI7cqSdQeS+ytL0AdzfSK00nEI5iIVwAg9P9bsR5OjxNfc28H0GAIYSSjdx5LkCBG76EOYZPETsKQV3t9paG9Sr7kCrdQq32CVPBvCpfRywMIirAUz+A2USygzj9qenlGbo52ZrOqF15f5uaucARkUeJkDBgPgAfcfp0a68fQpm+h489mKdLZiVtN3f6cFGV/kyk1wjCCZNQQHyBbn6ANxjpptBxSX8QtUZLNAYnkWchs3nbW60PGt/Nzue9nFQExQBWZgA30hdWJ7SA2Gy90EEszmCRZoi5vsFo6Y7PFXV4/DeQ5+aytwspMUA+qU4t2OYR1Ui3Rx6EC6JwPjdFg0EMYbNrsedQeSmhu5ujptfUXOwMxiDetXVq54WGi5UXj6qG8oqcZS6BuDJEfyMu34CRA/v7u/0AuNz3Haun/Xra5yge9ZbShMsCGFNk5Sx3Ox4sDhIdL7ydF1fe4WcurJ3+5LKotQ8aQbwTd9ycJVPU7goRegc8rwAT68OVtyKROVmAGf5wiBseEmlHtW5rc+4fAxBowPaDuLHP/09QH88U2WCRJzAvduX1AeXT0U2vug5m4Bqkg8sAC7HUvqUcgruhQcR//5OL5T6//j7rn4uBSe+1Of1Vv9dt7M9GzoQiXDX6upxtbZ2U5T8MImdE4ee0oMYNOM3X3Nhs+P5JnRefvoAbHbMKplP/mDtADII/m5T/xiVIPFtO5vSNjDJBQDw+XdtALCbIp5GJlovFU2QRKNqpeHAiUNP6S/CTtvyrdWD1C8fnC//24Zbm72Rkm3Ts7iDiQdRhHEMKeGxHyjhpjwGfXZYPwev4VPMV+7vprL+MBETELfgwnSqhgn3tjsic4VJ+JjaDyoo4Ziv9VU7JrDCLA6RThGJ0s80K49ic9NKw1HrLeVT+1ELNsbBfM3Vq4RwYQZuK2falIlv2GxS4xTcQUUzxWco0wC+IwD43hMSNAd5zwbGBmbWpPl3k2Mp1fuZsNGVHUyURu5opgF8R3zPNFZFx21RnT9U09zZbHWtTljaQEeLagI+Y0jn/4McOQC/7aeSTxEmuUSvNfk7Uf2fJB3D2HmAGVa0kSdwnWBS4BoE25dmE8OmnvlRcrZnS7/f3WrD83N14Y7xENsEoPOTVO7d1k7Qb7ZBNa0diALp/D8+ccX7yE88k/43tZclxlEhxZl12X+YOIETTDDBBBNMMMEEE0wwQUz8H2pOkJ2AiFOYAAAAAElFTkSuQmCC";
+
   if(document.getElementById("ape16IntegratedConverter")) return;
 
   const conv={
@@ -2666,6 +2668,40 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   }
 
   function cleanAndNormalize(){
+    const mode=$id("ape16ConvMode")?.value || "genesis";
+
+    if(mode==="genesis"){
+      if(!conv.image){
+        $id("ape16ConvStatus").textContent="Load the approved Brown Genesis image first.";
+        return;
+      }
+      const img=new Image();
+      img.onload=()=>{
+        conv.logical.width=128;
+        conv.logical.height=128;
+        const out=conv.logical.getContext("2d",{willReadFrequently:true});
+        out.imageSmoothingEnabled=false;
+        out.clearRect(0,0,128,128);
+        out.drawImage(img,0,0,128,128);
+
+        const d=out.getImageData(0,0,128,128).data;
+        const seen=new Map();
+        for(let i=0;i<d.length;i+=4){
+          if(d[i+3]!==255) continue;
+          const key=`${d[i]},${d[i+1]},${d[i+2]}`;
+          seen.set(key,[d[i],d[i+1],d[i+2],255]);
+        }
+        conv.palette=[...seen.values()];
+        conv.ready=true;
+        drawPreview();
+        ["ape16ConvUseGenesis","ape16ConvExportMaster","ape16ConvExport1024","ape16ConvExport4096","ape16ConvVerify"]
+          .forEach(id=>{ if($id(id)) $id(id).disabled=false; });
+        $id("ape16ConvStatus").textContent=
+          "PASS READY · GENESIS IDENTITY LOCK · exact 128×128 master loaded";
+      };
+      img.src=APE16_GENESIS_MASTER_DATA;
+      return;
+    }
     if(!conv.image){
       $id("ape16ConvStatus").textContent="Load the approved ape artwork first.";
       return;
@@ -2789,6 +2825,35 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
       `PASS READY · ${n}×${n} logical master · ${conv.palette.length} flat colors · hard RGBA cells`;
   }
 
+
+  function verifyGenesisIdentity(){
+    if(!conv.ready){
+      $id("ape16ConvStatus").textContent="Run the converter first.";
+      return;
+    }
+    if(($id("ape16ConvMode")?.value || "genesis")!=="genesis"){
+      $id("ape16ConvStatus").textContent="Identity Verify applies to Genesis Locked mode.";
+      return;
+    }
+    const canonical=new Image();
+    canonical.onload=()=>{
+      const test=document.createElement("canvas");
+      test.width=test.height=128;
+      const tx=test.getContext("2d",{willReadFrequently:true});
+      tx.imageSmoothingEnabled=false;
+      tx.drawImage(canonical,0,0,128,128);
+      const a=tx.getImageData(0,0,128,128).data;
+      const b=conv.logical.getContext("2d",{willReadFrequently:true})
+        .getImageData(0,0,128,128).data;
+      let mismatches=0;
+      for(let i=0;i<a.length;i++) if(a[i]!==b[i]) mismatches++;
+      $id("ape16ConvStatus").textContent = mismatches===0
+        ? "IDENTITY PASS · 0 channel mismatches · pixel-for-pixel identical"
+        : `IDENTITY FAIL · ${mismatches} channel mismatches`;
+    };
+    canonical.src=APE16_GENESIS_MASTER_DATA;
+  }
+
   function download(size,name){
     if(!conv.ready) return;
     const c=document.createElement("canvas");
@@ -2870,14 +2935,21 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   const section=document.createElement("section");
   section.id="ape16IntegratedConverter";
   section.innerHTML=`
-    <h2>APE16 V6.6 · CLEAN PIXEL ART CONVERTER</h2>
+    <h2>APE16 V6.6.1 · GENESIS LOCK + TRAIT CONVERTER</h2>
     <p style="color:#aaa;line-height:1.45">
-      Preserve the approved artwork. This converter does <b>not redesign</b> the ape.
+      Genesis Locked mode reproduces the approved Brown master <b>pixel-for-pixel</b>. Trait Clean mode preserves supplied trait artwork and normalizes it without redesigning the trait.
       It snaps the source to a true logical grid, removes soft alpha/anti-aliasing,
       normalizes the palette, and creates exact nearest-neighbor production exports.
     </p>
 
     <div style="display:grid;gap:12px">
+      <label>Converter mode
+        <select id="ape16ConvMode" style="margin-left:8px">
+          <option value="genesis" selected>Genesis Locked — exact Brown master</option>
+          <option value="trait">Trait Clean — preserve supplied trait art</option>
+        </select>
+      </label>
+
       <input id="ape16ConvFile" type="file" accept="image/png,image/webp,image/jpeg">
 
       <label>Logical master
@@ -2930,6 +3002,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button id="ape16ConvUseGenesis" type="button" disabled>Use Clean Master as Genesis</button>
+      <button id="ape16ConvVerify" type="button" disabled>Verify Genesis Identity</button>
       <button id="ape16ConvExportMaster" type="button" disabled>Export Logical Master</button>
       <button id="ape16ConvExport1024" type="button" disabled>Export 1024 PNG</button>
       <button id="ape16ConvExport4096" type="button" disabled>Export 4096 PNG</button>
@@ -2968,6 +3041,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
   $id("ape16ConvConvert").addEventListener("click",cleanAndNormalize);
   $id("ape16ConvUseGenesis").addEventListener("click",useAsGenesis);
+  $id("ape16ConvVerify").addEventListener("click",verifyGenesisIdentity);
   $id("ape16ConvExportMaster").addEventListener("click",()=>{
     const n=conv.logical.width;
     download(n,`APE16_CLEAN_MASTER_${n}x${n}.png`);
