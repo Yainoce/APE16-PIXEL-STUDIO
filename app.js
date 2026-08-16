@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 
-const VERSION="7.1.0";
+const VERSION="7.2.0";
 const LAYER_ORDER=["Background","Body","Clothing","Mouth","Eyes","Headwear","Accessories"];
 const ANCHOR_RATIOS={
   head:[0.50,0.14],leftEye:[0.41,0.40],rightEye:[0.59,0.40],
@@ -67,13 +67,20 @@ function initCellsForResolution(n){
 }
 
 function setPage(page){
+  const target=$("page-"+page);
+  if(!target){
+    const s=$("startupStatus");
+    if(s)s.textContent=`Navigation error: missing page-${page}`;
+    return false;
+  }
   state.page=page;
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
-  $("page-"+page).classList.remove("hidden");
+  target.classList.remove("hidden");
   document.querySelectorAll(".flowStep").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
   if(page==="genesis") drawEditor();
   if(page==="traits"){drawTraitEditor();refreshTraitPreviews();renderAssetLibrary()}
   if(page==="export") updateExportAudit(false);
+  return true;
 }
 document.querySelectorAll(".flowStep").forEach(b=>b.onclick=()=>setPage(b.dataset.page));
 
@@ -98,8 +105,8 @@ async function loadBuiltInReference(){
 function setReference(dataURL){
   state.reference.dataURL=dataURL;
   loadImageFromDataURL(dataURL,img=>{
-    state.reference.img=img;
-    $("refStatus").textContent=`Reference loaded · ${img.width}×${img.height}`;
+    state.reference.img=img || null;
+    $("refStatus").textContent=img ? `Reference loaded · ${img.width}×${img.height}` : "Reference load failed.";
     renderResolutionPreviews();
     drawEditor();
     scheduleAutosave();
@@ -112,7 +119,7 @@ function renderResolutionPreviews(){
   document.querySelectorAll(".resCard").forEach(card=>{
     const n=Number(card.dataset.res),c=card.querySelector("canvas"),x=c.getContext("2d");
     x.clearRect(0,0,c.width,c.height);x.imageSmoothingEnabled=false;
-    if(!state.reference.img)return;
+    if(!state.reference || !state.reference.img || !state.reference.img.width)return;
     const tmp=document.createElement("canvas");tmp.width=tmp.height=n;
     const tx=tmp.getContext("2d");tx.imageSmoothingEnabled=false;
     fitReference(tx,state.reference.img,n,state.reference.scale,state.reference.x,state.reference.y,1);
@@ -134,10 +141,15 @@ $("lockResolution").onclick=()=>{
 };
 
 function fitReference(ctx,img,n,scalePct,xOff,yOff,alpha){
+  if(!img || !img.width || !img.height) return false;
   const s=(scalePct/100)*Math.min(n/img.width,n/img.height);
   const w=img.width*s,h=img.height*s;
   const x=(n-w)/2+xOff,y=(n-h)/2+yOff;
-  ctx.globalAlpha=alpha;ctx.imageSmoothingEnabled=false;ctx.drawImage(img,x,y,w,h);ctx.globalAlpha=1;
+  ctx.globalAlpha=alpha;
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(img,x,y,w,h);
+  ctx.globalAlpha=1;
+  return true;
 }
 ["refScale","refOpacity","refX","refY"].forEach(id=>{
   $(id).oninput=e=>{
@@ -350,7 +362,12 @@ $("exportGenesisLogical").onclick=()=>exportCells(state.genesis.cells,state.reso
 $("exportGenesis4k").onclick=()=>exportCells(state.genesis.cells,4096,"APE16_Brown_Genesis_4096x4096.png");
 
 function setTraitReference(dataURL){
-  state.traitReference.dataURL=dataURL;loadImageFromDataURL(dataURL,img=>{state.traitReference.img=img;drawTraitEditor();scheduleAutosave()});
+  state.traitReference.dataURL=dataURL;
+  loadImageFromDataURL(dataURL,img=>{
+    state.traitReference.img=img || null;
+    drawTraitEditor();
+    scheduleAutosave();
+  });
 }
 $("traitReferenceFile").onchange=e=>{const f=e.target.files[0];if(f)fileToDataURL(f,setTraitReference)};
 ["traitRefScale","traitRefOpacity","traitRefX","traitRefY"].forEach(id=>{
@@ -481,7 +498,7 @@ function sparseCells(cells){const out=[];for(let i=0;i<cells.length;i++)if(cells
 function inflateCells(sparse,n){const c=makeCells(n);for(const [i,v] of sparse||[])c[i]=v;return c}
 function serializeProject(includeRefs=true){
   return {
-    format:"APE16_STUDIO_V7",version:VERSION,projectName:state.projectName,supply:state.supply,resolution:state.resolution,resolutionLocked:state.resolutionLocked,
+    format:"APE16_STUDIO_V7",version:VERSION,projectName:state.projectName,supply:state.supply,resolution:state.resolution,resolutionLocked:state.resolutionLocked,genesisCellSize:state.genesisCellSize,traitCellSize:state.traitCellSize,
     reference:{dataURL:includeRefs?state.reference.dataURL:null,scale:state.reference.scale,x:state.reference.x,y:state.reference.y,opacity:state.reference.opacity,locked:state.reference.locked},
     genesis:{cells:sparseCells(state.genesis.cells),locked:state.genesis.locked,revision:state.genesis.revision,palette:state.genesis.palette},
     traits:state.traits.map(t=>({category:t.category,name:t.name,weight:t.weight,allowEmpty:!!t.allowEmpty,revision:t.revision,cells:sparseCells(t.cells),mask:t.mask.map((v,i)=>v?i:-1).filter(i=>i>=0),approved:true}))
@@ -489,18 +506,103 @@ function serializeProject(includeRefs=true){
 }
 function restoreProject(p){
   if(!p||p.format!=="APE16_STUDIO_V7")throw new Error("Not an APE16 Studio V7 project.");
-  state.projectName=p.projectName||"APE16";state.supply=p.supply||3333;state.resolution=p.resolution;state.resolutionLocked=!!p.resolutionLocked;
-  $("projectName").value=state.projectName;$("collectionSupply").value=state.supply;
-  state.reference={...state.reference,...p.reference,img:null};
-  if(p.reference?.dataURL)loadImageFromDataURL(p.reference.dataURL,img=>{state.reference.img=img;renderResolutionPreviews();drawEditor()});
-  state.genesis={cells:inflateCells(p.genesis.cells,state.resolution),locked:!!p.genesis.locked,revision:p.genesis.revision||1,palette:p.genesis.palette||state.genesis.palette};
-  state.traits=(p.traits||[]).map(t=>({category:t.category,name:t.name,weight:t.weight,allowEmpty:!!t.allowEmpty,revision:t.revision,cells:inflateCells(t.cells,state.resolution),mask:(()=>{const m=new Array(state.resolution**2).fill(false);for(const i of t.mask||[])m[i]=true;return m})(),approved:true}));
-  state.workingTrait=null;renderPalette();renderAssetLibrary();drawEditor();drawTraitEditor();refreshTraitPreviews();
-  $("resolutionStatus").textContent=`LOCKED: ${state.resolution}×${state.resolution} · exact 4K ×${4096/state.resolution}`;
-  $("lockResolution").disabled=state.resolutionLocked;document.querySelectorAll(".resCard").forEach(x=>x.disabled=state.resolutionLocked);
-  if(state.genesis.locked){$("genesisLockBadge").textContent="APPROVED + LOCKED";$("genesisLockBadge").className="pill ok";$("approveGenesis").disabled=true;$("createGenesisRevision").disabled=false}
-}
-function scheduleAutosave(){
+
+  state.projectName=p.projectName||"APE16";
+  state.supply=Number(p.supply)||3333;
+  state.resolution=[32,64,128].includes(Number(p.resolution))?Number(p.resolution):64;
+  state.resolutionLocked=!!p.resolutionLocked;
+  state.genesisCellSize=[6,10,14,18].includes(Number(p.genesisCellSize))?Number(p.genesisCellSize):10;
+  state.traitCellSize=[6,10,14,18].includes(Number(p.traitCellSize))?Number(p.traitCellSize):10;
+  if($("genesisCellSize"))$("genesisCellSize").value=String(state.genesisCellSize);
+  if($("traitCellSize"))$("traitCellSize").value=String(state.traitCellSize);
+
+  $("projectName").value=state.projectName;
+  $("collectionSupply").value=state.supply;
+
+  const ref=p.reference||{};
+  state.reference={
+    img:null,
+    dataURL:ref.dataURL||null,
+    scale:Number(ref.scale)||100,
+    x:Number(ref.x)||0,
+    y:Number(ref.y)||0,
+    opacity:Number(ref.opacity)||55,
+    locked:!!ref.locked
+  };
+
+  const g=p.genesis||{};
+  state.genesis={
+    cells:inflateCells(g.cells||[],state.resolution),
+    locked:!!g.locked,
+    revision:Number(g.revision)||1,
+    palette:Array.isArray(g.palette)&&g.palette.length?g.palette:["#000000","#5b1908","#8a2c0f","#bd4c18","#f2a534","#ffd078","#ffffff"]
+  };
+
+  state.traits=(p.traits||[]).map(t=>({
+    category:t.category||"Accessories",
+    name:t.name||"Trait",
+    weight:Number(t.weight)||1,
+    allowEmpty:!!t.allowEmpty,
+    revision:Number(t.revision)||1,
+    cells:inflateCells(t.cells||[],state.resolution),
+    mask:(()=>{
+      const m=new Array(state.resolution**2).fill(false);
+      for(const i of (t.mask||[])) if(Number.isInteger(i)&&i>=0&&i<m.length)m[i]=true;
+      return m;
+    })(),
+    approved:true
+  }));
+
+  state.workingTrait=null;
+  state.history=[];
+  state.redo=[];
+  state.traitHistory=[];
+  state.traitRedo=[];
+
+  $("resolutionStatus").textContent=state.resolutionLocked
+    ? `LOCKED: ${state.resolution}×${state.resolution} · exact 4K ×${4096/state.resolution}`
+    : `Selected: ${state.resolution}×${state.resolution} · 4K scale ×${4096/state.resolution}`;
+
+  $("lockResolution").disabled=state.resolutionLocked;
+  document.querySelectorAll(".resCard").forEach(x=>{
+    x.disabled=state.resolutionLocked;
+    x.classList.toggle("selected",Number(x.dataset.res)===state.resolution);
+  });
+
+  if(state.genesis.locked){
+    $("genesisLockBadge").textContent="APPROVED + LOCKED";
+    $("genesisLockBadge").className="pill ok";
+    $("approveGenesis").disabled=true;
+    $("createGenesisRevision").disabled=false;
+  }else{
+    $("genesisLockBadge").textContent="WORKING";
+    $("genesisLockBadge").className="pill warn";
+    $("approveGenesis").disabled=false;
+    $("createGenesisRevision").disabled=true;
+  }
+
+  renderPalette();
+  renderAssetLibrary();
+  drawEditor();
+  drawTraitEditor();
+  refreshTraitPreviews();
+
+  if(state.reference.dataURL){
+    loadImageFromDataURL(state.reference.dataURL,img=>{
+      state.reference.img=img||null;
+      renderResolutionPreviews();
+      drawEditor();
+      const s=$("recoveryStatus");
+      if(s)s.textContent=img ? "Autosave restored with reference." : "Autosave restored; reference image unavailable.";
+    });
+  }else{
+    state.reference.img=null;
+    renderResolutionPreviews();
+    drawEditor();
+    const s=$("recoveryStatus");
+    if(s)s.textContent="Autosave restored; no embedded reference image.";
+  }
+}function scheduleAutosave(){
   clearTimeout(state.autosaveTimer);state.autosaveTimer=setTimeout(()=>{
     state.projectName=$("projectName").value||"APE16";state.supply=Number($("collectionSupply").value)||3333;
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify(serializeProject(true)));$("recoveryStatus").textContent="Autosaved with references."}
@@ -509,7 +611,15 @@ function scheduleAutosave(){
   },400);
 }
 ["projectName","collectionSupply"].forEach(id=>$(id).oninput=scheduleAutosave);
-$("restoreAutosave").onclick=()=>{try{const s=localStorage.getItem(STORAGE_KEY);if(!s){$("recoveryStatus").textContent="No local recovery found.";return}restoreProject(JSON.parse(s));$("recoveryStatus").textContent="Autosave restored."}catch(e){$("recoveryStatus").textContent=e.message}};
+$("restoreAutosave").onclick=()=>{
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw){$("recoveryStatus").textContent="No local recovery found.";return}
+    restoreProject(JSON.parse(raw));
+  }catch(e){
+    $("recoveryStatus").textContent="Recovery failed safely: "+(e?.message||String(e));
+  }
+};
 $("clearAutosave").onclick=()=>{localStorage.removeItem(STORAGE_KEY);$("recoveryStatus").textContent="Local recovery cleared."};
 $("exportProjectJson").onclick=()=>downloadBlob(new Blob([JSON.stringify(serializeProject(true),null,2)],{type:"application/json"}),`${safeName(state.projectName)}_V7_project.ape16.json`);
 $("loadProjectJson").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{restoreProject(JSON.parse(r.result));scheduleAutosave()}catch(err){alert(err.message)}};r.readAsText(f)};
@@ -619,7 +729,23 @@ if(location.search.includes("selftest=1")){
   });
 }
 
-loadBuiltInReference();
-drawEditor();
+function startupCheck(){
+  const required=["page-setup","page-genesis","page-traits","page-export","editorCanvas","traitEditorCanvas"];
+  const missing=required.filter(id=>!$(id));
+  const status=$("startupStatus");
+  if(missing.length){
+    if(status)status.textContent="STARTUP FAIL · missing: "+missing.join(", ");
+    return false;
+  }
+  if(status)status.textContent=`STARTUP PASS · V${VERSION} · all production pages loaded`;
+  return true;
+}
+
+startupCheck();
+setPage("setup");
 renderAssetLibrary();
+drawEditor();
+drawTraitEditor();
+refreshTraitPreviews();
+loadBuiltInReference();
 })();
