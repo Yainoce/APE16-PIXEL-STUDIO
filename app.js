@@ -2623,17 +2623,15 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 })();
 
 
-/* ============================================================
-   APE16 V6.5.4 · APPROVED TARGET CONVERTER
-   Non-destructive reference -> flat 64×64 APE16 suggestion.
-   ============================================================ */
-(function setupIntegratedAPE16Converter(){
-  const $id=(id)=>document.getElementById(id);
-  if(document.getElementById("ape16IntegratedConverter")) return;
 
-  // V6.5.4 APPROVED BROWN TARGET
-  // Regression-locked. Brown conversion always returns this exact 64x64 master.
-  const APE16_APPROVED_BROWN_TARGET="data:image/png;base64,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";
+/* ============================================================
+   APE16 V6.6 · CLEAN PIXEL ART CONVERTER
+   Preserve approved artwork; normalize it into a true logical
+   pixel master and export exact integer-scaled production PNGs.
+   ============================================================ */
+(function setupAPE16V66Converter(){
+  const $id=id=>document.getElementById(id);
+  if(document.getElementById("ape16IntegratedConverter")) return;
 
   const conv={
     image:null,
@@ -2641,318 +2639,170 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
     ready:false,
     palette:[]
   };
-  conv.logical.width=conv.logical.height=64;
-  const cc=conv.logical.getContext("2d",{willReadFrequently:true});
-  cc.imageSmoothingEnabled=false;
 
-  function clamp(v){return Math.max(0,Math.min(255,Math.round(v)))}
-  function rgbDist(a,b){return (a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2}
-  function lum(p){return .2126*p[0]+.7152*p[1]+.0722*p[2]}
-
-  function contrastChannel(v,amount){
-    const c=(amount-5)*18;
-    const f=(259*(c+255))/(255*(259-c));
-    return clamp(f*(v-128)+128);
-  }
-
-  function quantilePalette(data,count,flat){
-    const pts=[];
-    for(let i=0;i<data.length;i+=4){
-      if(data[i+3]<128) continue;
-      pts.push([data[i],data[i+1],data[i+2]]);
-    }
-    if(!pts.length) return [[20,12,8]];
-    pts.sort((a,b)=>lum(a)-lum(b));
-    const pal=[];
-    for(let k=0;k<count;k++){
-      const idx=Math.floor((k/(count-1||1))*(pts.length-1));
-      let p=pts[idx].slice();
-      if(flat){
-        const avg=(p[0]+p[1]+p[2])/3;
-        const sat=1.22;
-        p=p.map(v=>clamp(avg+(v-avg)*sat));
-      }
-      pal.push(p);
-    }
-    // Hardest/darkest functional color for silhouette + facial structure.
-    pal[0]=pal[0].map(v=>clamp(v*.20));
-    return pal;
+  function clamp8(v){ return Math.max(0,Math.min(255,Math.round(v))); }
+  function lum(p){ return 0.2126*p[0]+0.7152*p[1]+0.0722*p[2]; }
+  function dist2(a,b){
+    const dr=a[0]-b[0], dg=a[1]-b[1], db=a[2]-b[2];
+    return dr*dr+dg*dg+db*db;
   }
 
   function drawPreview(){
-    const canvas=$id("ape16ConvPreview");
-    if(!canvas) return;
-    const x=canvas.getContext("2d");
-    x.clearRect(0,0,512,512);
+    const c=$id("ape16ConvPreview");
+    if(!c) return;
+    const x=c.getContext("2d");
+    x.clearRect(0,0,c.width,c.height);
     x.imageSmoothingEnabled=false;
-    if(conv.ready) x.drawImage(conv.logical,0,0,512,512);
+    if(conv.ready) x.drawImage(conv.logical,0,0,c.width,c.height);
   }
 
-  function convert(){
-    // V6.5.4 APPROVED BROWN LOCK:
-    // Once a source image is loaded, bypass every old heuristic/quantizer and
-    // return the locked approved master exactly.
+  function fitSource(ctx,img,n){
+    ctx.clearRect(0,0,n,n);
+    ctx.imageSmoothingEnabled=false;
+    const scale=Math.min(n/img.width,n/img.height);
+    const w=img.width*scale, h=img.height*scale;
+    const x=(n-w)/2, y=(n-h)/2;
+    ctx.drawImage(img,x,y,w,h);
+  }
+
+  function cleanAndNormalize(){
     if(!conv.image){
-      $id("ape16ConvStatus").textContent="Load the original Brown reference image first.";
+      $id("ape16ConvStatus").textContent="Load the approved ape artwork first.";
       return;
     }
 
-    const approved=new Image();
-    approved.onload=()=>{
-      cc.imageSmoothingEnabled=false;
-      cc.clearRect(0,0,64,64);
-      cc.drawImage(approved,0,0,64,64);
+    const n=Number($id("ape16ConvResolution").value);
+    const paletteCount=Number($id("ape16ConvPalette").value);
+    const alphaCutoff=Number($id("ape16ConvAlpha").value);
 
-      conv.palette=[
-        [0,0,0,255],
-        [124,34,12,255],
-        [150,59,17,255],
-        [247,178,63,255],
-        [250,215,137,255],
-        [223,170,105,255],
-        [255,255,255,255]
-      ];
-      conv.ready=true;
+    conv.logical.width=n;
+    conv.logical.height=n;
+    const out=conv.logical.getContext("2d",{willReadFrequently:true});
+    out.imageSmoothingEnabled=false;
 
-      drawPreview();
-
-      $id("ape16ConvUseGenesis").disabled=false;
-      $id("ape16ConvExport64").disabled=false;
-      $id("ape16ConvStatus").textContent=
-        "Conversion ready · V6.5.4 APPROVED TARGET LOCK · exact Brown master";
-    };
-    approved.onerror=()=>{
-      $id("ape16ConvStatus").textContent="ERROR · approved Brown target failed to load";
-    };
-    approved.src=APE16_APPROVED_BROWN_TARGET;
-    return;
-
-    if(!conv.image){
-      $id("ape16ConvStatus").textContent="Load a converter reference image first.";
-      return;
-    }
     const temp=document.createElement("canvas");
-    temp.width=temp.height=64;
+    temp.width=temp.height=n;
     const tx=temp.getContext("2d",{willReadFrequently:true});
-    tx.imageSmoothingEnabled=true;
+    fitSource(tx,conv.image,n);
 
-    const scale=Number($id("ape16ConvScale").value)/100;
-    const base=Math.min(64/conv.image.width,64/conv.image.height);
-    const w=conv.image.width*base*scale;
-    const h=conv.image.height*base*scale;
-    const ox=Number($id("ape16ConvX").value)||0;
-    const oy=Number($id("ape16ConvY").value)||0;
-    tx.clearRect(0,0,64,64);
-    tx.drawImage(conv.image,(64-w)/2+ox,(64-h)/2+oy,w,h);
-
-    const im=tx.getImageData(0,0,64,64);
+    const im=tx.getImageData(0,0,n,n);
     const d=im.data;
-    const cutoff=Number($id("ape16ConvCutoff").value)||242;
-    const cont=Number($id("ape16ConvContrast").value)||7;
 
-    for(let i=0;i<d.length;i+=4){
-      if(d[i+3]<128 || (d[i]>=cutoff && d[i+1]>=cutoff && d[i+2]>=cutoff)){
-        d[i]=d[i+1]=d[i+2]=0; d[i+3]=0; continue;
+    const pts=[];
+    const kinds=new Uint8Array(n*n); // 0 transparent, 1 black, 2 white, 3 cluster
+    for(let i=0,p=0;i<d.length;i+=4,p++){
+      const r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];
+      if(a<alphaCutoff){
+        d[i]=d[i+1]=d[i+2]=0; d[i+3]=0; kinds[p]=0; continue;
       }
-      d[i]=contrastChannel(d[i],cont);
-      d[i+1]=contrastChannel(d[i+1],cont);
-      d[i+2]=contrastChannel(d[i+2],cont);
       d[i+3]=255;
+      const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+      if(mx<35){
+        d[i]=d[i+1]=d[i+2]=0; kinds[p]=1;
+      } else if(mn>220 && mx-mn<30){
+        d[i]=d[i+1]=d[i+2]=255; kinds[p]=2;
+      } else {
+        pts.push([r,g,b,p]); kinds[p]=3;
+      }
     }
 
-    // Preserve contrasted source pixels for high-value facial-feature recovery.
-    // This lets the flat-color pass remove shading without erasing eyes/nose/mouth.
-    const featureSource=new Uint8ClampedArray(d);
+    // Deterministic k-means for remaining colors.
+    const k=Math.max(1,paletteCount-2);
+    let centers=[];
+    if(pts.length){
+      const sorted=pts.slice().sort((a,b)=>lum(a)-lum(b));
+      for(let j=0;j<k;j++){
+        const idx=Math.floor(((j+0.5)/k)*(sorted.length-1));
+        centers.push(sorted[idx].slice(0,3));
+      }
 
-    const paletteCount=Number($id("ape16ConvPalette").value)||7;
-    const flat=$id("ape16ConvFlat").checked;
-    const pal=quantilePalette(d,paletteCount,flat);
-    conv.palette=pal.map(p=>[...p,255]);
+      for(let iter=0;iter<12;iter++){
+        const sums=Array.from({length:k},()=>[0,0,0,0]);
+        for(const p of pts){
+          let best=0,bd=Infinity;
+          for(let j=0;j<k;j++){
+            const dd=dist2(p,centers[j]);
+            if(dd<bd){bd=dd;best=j;}
+          }
+          sums[best][0]+=p[0]; sums[best][1]+=p[1];
+          sums[best][2]+=p[2]; sums[best][3]++;
+        }
+        let moved=0;
+        const next=centers.map((c,j)=>{
+          const s=sums[j];
+          if(!s[3]) return c;
+          const q=[s[0]/s[3],s[1]/s[3],s[2]/s[3]];
+          moved+=dist2(c,q);
+          return q;
+        });
+        centers=next;
+        if(moved<0.1) break;
+      }
 
-    // Quantize to functional flat palette.
+      // Assign every non-black/non-white opaque cell.
+      for(const p of pts){
+        let best=0,bd=Infinity;
+        for(let j=0;j<k;j++){
+          const dd=dist2(p,centers[j]);
+          if(dd<bd){bd=dd;best=j;}
+        }
+        const i=p[3]*4, c=centers[best];
+        d[i]=clamp8(c[0]); d[i+1]=clamp8(c[1]); d[i+2]=clamp8(c[2]); d[i+3]=255;
+      }
+    }
+
+    // Remove only fully isolated opaque single cells.
+    const copy=new Uint8ClampedArray(d);
+    const opaqueAt=(x,y)=>{
+      if(x<0||y<0||x>=n||y>=n) return false;
+      return copy[(y*n+x)*4+3]===255;
+    };
+    for(let y=0;y<n;y++) for(let x=0;x<n;x++){
+      const i=(y*n+x)*4;
+      if(copy[i+3]!==255) continue;
+      let neighbors=0;
+      for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+        if(dx===0&&dy===0) continue;
+        if(opaqueAt(x+dx,y+dy)) neighbors++;
+      }
+      if(neighbors===0){
+        d[i]=d[i+1]=d[i+2]=0; d[i+3]=0;
+      }
+    }
+
+    out.putImageData(im,0,0);
+
+    const seen=new Map();
     for(let i=0;i<d.length;i+=4){
-      if(d[i+3]===0) continue;
-      const p=[d[i],d[i+1],d[i+2]];
-      let best=pal[0],bd=Infinity;
-      for(const q of pal){
-        const dd=rgbDist(p,q);
-        if(dd<bd){bd=dd;best=q}
-      }
-      d[i]=best[0]; d[i+1]=best[1]; d[i+2]=best[2]; d[i+3]=255;
+      if(d[i+3]!==255) continue;
+      const key=`${d[i]},${d[i+1]},${d[i+2]}`;
+      seen.set(key,[d[i],d[i+1],d[i+2],255]);
     }
-
-    // V6.5.2 FEATURE-SAFE FLAT PROFILE
-    // Consolidated corrections for APE16:
-    //   • ears use only controlled warm local colors
-    //   • eyes are pure white + functional dark only
-    //   • nose is connected/readable, not fragmented shading
-    //   • mouth is guaranteed to remain visible
-    //   • face/muzzle use two flat warm tones instead of a gradient chain
-    if(flat){
-      const dark=pal[0];
-      const white=[255,255,255];
-
-      const srcAt=(x,y)=>{
-        const i=(y*64+x)*4;
-        return [featureSource[i],featureSource[i+1],featureSource[i+2],featureSource[i+3]];
-      };
-      const L=p=>0.2126*p[0]+0.7152*p[1]+0.0722*p[2];
-      const S=p=>Math.max(p[0],p[1],p[2])-Math.min(p[0],p[1],p[2]);
-      const paint=(x,y,c)=>{
-        if(x<0||y<0||x>=64||y>=64) return;
-        const i=(y*64+x)*4;
-        if(d[i+3]===0) return;
-        d[i]=c[0]; d[i+1]=c[1]; d[i+2]=c[2]; d[i+3]=255;
-      };
-      const avgColor=(x0,y0,x1,y1,filter)=>{
-        let r=0,g=0,b=0,n=0;
-        for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
-          const p=srcAt(x,y);
-          if(p[3]===0) continue;
-          if(filter && !filter(p,x,y)) continue;
-          r+=p[0];g+=p[1];b+=p[2];n++;
-        }
-        if(!n) return [180,125,80];
-        return [clamp(r/n),clamp(g/n),clamp(b/n)];
-      };
-      const shiftLight=(p,delta)=>p.map(v=>clamp(v+delta));
-      const warmClamp=(p)=>{
-        let [r,g,b]=p;
-        if(r<g) r=g+8;
-        if(g<b) g=b+6;
-        return [clamp(r),clamp(g),clamp(b)];
-      };
-
-      // Controlled local flat colors.
-      const faceBase=warmClamp(avgColor(24,22,40,43,(p)=>L(p)>125 && S(p)<110));
-      const muzzleBase=warmClamp(shiftLight(faceBase,18));
-      const faceShadow=warmClamp(shiftLight(faceBase,-28));
-      const earBase=warmClamp(avgColor(15,27,22,38,(p)=>L(p)>75));
-      const earLight=warmClamp(shiftLight(earBase,22));
-
-      // FACE / MUZZLE: flat separation with critical feature zones excluded.
-      for(let y=22;y<=43;y++) for(let x=23;x<=41;x++){
-        const p=srcAt(x,y);
-        if(p[3]===0) continue;
-
-        const inEye=(x>=23&&x<=30&&y>=27&&y<=35)||(x>=34&&x<=41&&y>=27&&y<=35);
-        const inNose=(x>=28&&x<=36&&y>=34&&y<=39);
-        const inMouth=(x>=26&&x<=39&&y>=40&&y<=44);
-        if(inEye||inNose||inMouth) continue;
-
-        const muzzle=((x>=27&&x<=37&&y>=33&&y<=43) || (x>=29&&x<=36&&y>=30&&y<=34));
-        if(muzzle) paint(x,y,muzzleBase);
-        else if(L(p)<105) paint(x,y,faceShadow);
-        else paint(x,y,faceBase);
-      }
-
-      // EARS: eliminate random red/yellow/gray speckling.
-      const earZones=[[15,26,22,38],[42,26,49,38]];
-      for(const [x0,y0,x1,y1] of earZones){
-        for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
-          const p=srcAt(x,y);
-          if(p[3]===0) continue;
-          const l=L(p);
-          if(l<95) paint(x,y,dark);
-          else if(l>175) paint(x,y,earLight);
-          else paint(x,y,earBase);
-        }
-      }
-
-      // EYES: graphic black/white only.
-      const eyeZones=[[23,27,30,35],[34,27,41,35]];
-      for(const [x0,y0,x1,y1] of eyeZones){
-        for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
-          const p=srcAt(x,y);
-          if(p[3]===0) continue;
-          const l=L(p);
-          if(l>=138 && S(p)<80) paint(x,y,white);
-          else if(l<150) paint(x,y,dark);
-        }
-      }
-
-      // NOSE: preserve real source structure + guarantee a connected core.
-      let nosePts=[];
-      for(let y=34;y<=39;y++) for(let x=28;x<=36;x++){
-        const p=srcAt(x,y);
-        if(p[3] && L(p)<135) nosePts.push([x,y,L(p)]);
-      }
-      nosePts.sort((a,b)=>a[2]-b[2]);
-      for(const [x,y] of nosePts.slice(0,14)) paint(x,y,dark);
-
-      const forcedNose=[[30,36],[31,36],[34,36],[35,36],[32,35],[33,35]];
-      for(const [x,y] of forcedNose) paint(x,y,dark);
-
-      // MOUTH: preserve source dark pixels, then guarantee a readable center line.
-      let bestRow=42,bestScore=1e9;
-      for(let y=40;y<=44;y++){
-        let vals=[];
-        for(let x=27;x<=38;x++){
-          const p=srcAt(x,y);
-          if(p[3]) vals.push(L(p));
-        }
-        if(vals.length){
-          vals.sort((a,b)=>a-b);
-          const score=vals.slice(0,Math.min(5,vals.length)).reduce((a,b)=>a+b,0);
-          if(score<bestScore){bestScore=score;bestRow=y;}
-        }
-      }
-
-      let mouthPts=[];
-      for(let y=40;y<=44;y++) for(let x=26;x<=39;x++){
-        const p=srcAt(x,y);
-        if(p[3] && L(p)<165) mouthPts.push([x,y,L(p)]);
-      }
-      mouthPts.sort((a,b)=>a[2]-b[2]);
-      for(const [x,y] of mouthPts.slice(0,10)) paint(x,y,dark);
-
-      const mouthY=Math.max(40,Math.min(43,bestRow));
-      for(let x=29;x<=35;x++) paint(x,mouthY,dark);
-      paint(28,mouthY-1,dark);
-      paint(36,mouthY-1,dark);
-    }
-
-    // Strong exterior outline: only opaque cells adjacent to transparency.
-    if(Number($id("ape16ConvOutline").value)>=5){
-      const copy=new Uint8ClampedArray(d);
-      const alpha=(x,y)=>{
-        if(x<0||y<0||x>=64||y>=64) return 0;
-        return copy[(y*64+x)*4+3];
-      };
-      const dark=pal[0];
-      for(let y=0;y<64;y++) for(let x=0;x<64;x++){
-        const i=(y*64+x)*4;
-        if(copy[i+3]===0) continue;
-        if(alpha(x-1,y)===0||alpha(x+1,y)===0||alpha(x,y-1)===0||alpha(x,y+1)===0){
-          d[i]=dark[0];d[i+1]=dark[1];d[i+2]=dark[2];
-        }
-      }
-    }
-
-    cc.clearRect(0,0,64,64);
-    cc.putImageData(im,0,0);
+    conv.palette=[...seen.values()];
     conv.ready=true;
+
     drawPreview();
-    $id("ape16ConvUseGenesis").disabled=false;
-    $id("ape16ConvExport64").disabled=false;
+    ["ape16ConvUseGenesis","ape16ConvExportMaster","ape16ConvExport1024","ape16ConvExport4096"]
+      .forEach(id=>$id(id).disabled=false);
+
     $id("ape16ConvStatus").textContent=
-      `Conversion ready · V6.5.2 feature-safe flat profile · ${paletteCount} colors · review ears, eyes, nose, mouth before using as Genesis`;
+      `PASS READY · ${n}×${n} logical master · ${conv.palette.length} flat colors · hard RGBA cells`;
   }
 
-  function downloadCanvas(canvas,size,name){
-    const out=document.createElement("canvas");
-    out.width=out.height=size;
-    const x=out.getContext("2d");
+  function download(size,name){
+    if(!conv.ready) return;
+    const c=document.createElement("canvas");
+    c.width=c.height=size;
+    const x=c.getContext("2d");
     x.imageSmoothingEnabled=false;
     x.clearRect(0,0,size,size);
-    x.drawImage(canvas,0,0,size,size);
-    out.toBlob(blob=>{
+    x.drawImage(conv.logical,0,0,size,size);
+    c.toBlob(blob=>{
       const a=document.createElement("a");
       a.href=URL.createObjectURL(blob);
       a.download=name;
       document.body.appendChild(a);
-      a.click();
-      a.remove();
+      a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(a.href),1500);
     },"image/png");
   }
@@ -2960,103 +2810,168 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   function useAsGenesis(){
     if(!conv.ready) return;
     if(state.approved){
-      alert("The currently loaded Genesis is approved. Create/open a fresh working Genesis project before replacing it.");
+      alert("An approved Genesis is already loaded. Start a fresh working Genesis before replacing it.");
       return;
     }
-    const data=cc.getImageData(0,0,64,64).data;
-    state.n=64;
-    state.cells=new Array(4096).fill(null);
-    for(let i=0;i<4096;i++){
-      const a=data[i*4+3];
-      if(a===0) continue;
-      state.cells[i]=[data[i*4],data[i*4+1],data[i*4+2],a];
+
+    const n=conv.logical.width;
+    const x=conv.logical.getContext("2d",{willReadFrequently:true});
+    const d=x.getImageData(0,0,n,n).data;
+
+    state.n=n;
+    state.zoom=Math.max(1,Math.floor(512/n));
+    state.cells=new Array(n*n).fill(null);
+    for(let p=0;p<n*n;p++){
+      const i=p*4;
+      if(d[i+3]===255) state.cells[p]=[d[i],d[i+1],d[i+2],255];
     }
-    state.undo=[];
-    state.redo=[];
+    state.undo=[]; state.redo=[];
     state.genesisPalette=conv.palette.map(c=>[...c]);
     state.paletteLocked=false;
     state.suggestion=[];
     state.suggestionPalette=[];
     state.showSuggestion=false;
+
     if(state.projectMeta){
       state.projectMeta.projectName="APE16";
       state.projectMeta.category="Genesis";
       state.projectMeta.traitName="Brown";
       state.projectMeta.revision=1;
     }
+
+    // Resize trait architecture to the new logical grid.
+    if(window.APE16_V6){
+      const V6=window.APE16_V6;
+      V6.trait=new Array(n*n).fill(null);
+      V6.mask=new Array(n*n).fill(false);
+      const s=n/64;
+      V6.anchors={
+        head:[Math.round(32*s),Math.round(18*s)],
+        leftEye:[Math.round(27*s),Math.round(31*s)],
+        rightEye:[Math.round(37*s),Math.round(31*s)],
+        leftEar:[Math.round(18*s),Math.round(32*s)],
+        rightEar:[Math.round(46*s),Math.round(32*s)],
+        mouth:[Math.round(32*s),Math.round(40*s)],
+        neck:[Math.round(32*s),Math.round(49*s)],
+        shoulders:[Math.round(32*s),Math.round(55*s)]
+      };
+    }
+
     if(typeof applyProjectMetaToUI==="function") applyProjectMetaToUI();
     if(typeof renderV5GenesisPalette==="function") renderV5GenesisPalette();
     if(typeof resize==="function") resize();
     if(typeof draw==="function") draw();
     if(typeof validateGenesis==="function") validateGenesis(false);
+
     $id("ape16ConvStatus").textContent=
-      "Conversion copied into editable Genesis · review/refine before palette lock or approval.";
+      `Loaded as editable Genesis · ${n}×${n} · review before palette lock/approval`;
   }
 
   const section=document.createElement("section");
   section.id="ape16IntegratedConverter";
   section.innerHTML=`
-    <h2>APE16 V6.5.4 · APPROVED TARGET CONVERTER</h2>
+    <h2>APE16 V6.6 · CLEAN PIXEL ART CONVERTER</h2>
     <p style="color:#aaa;line-height:1.45">
-      Reference → flat high-contrast 64×64 APE16 starting art. Conversion is non-destructive until you explicitly choose <b>Use Conversion as Genesis</b>.
+      Preserve the approved artwork. This converter does <b>not redesign</b> the ape.
+      It snaps the source to a true logical grid, removes soft alpha/anti-aliasing,
+      normalizes the palette, and creates exact nearest-neighbor production exports.
     </p>
-    <div style="display:grid;gap:10px">
-      <input id="ape16ConvFile" type="file" accept="image/*">
-      <label>Scale <input id="ape16ConvScale" type="range" min="20" max="140" value="85"> <span id="ape16ConvScaleOut">85%</span></label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <label>X <input id="ape16ConvX" type="number" value="0" style="width:70px"></label>
-        <label>Y <input id="ape16ConvY" type="number" value="0" style="width:70px"></label>
+
+    <div style="display:grid;gap:12px">
+      <input id="ape16ConvFile" type="file" accept="image/png,image/webp,image/jpeg">
+
+      <label>Logical master
+        <select id="ape16ConvResolution" style="margin-left:8px">
+          <option value="64">64×64</option>
+          <option value="128" selected>128×128 — recommended</option>
+          <option value="256">256×256</option>
+        </select>
+      </label>
+
+      <label>Maximum flat colors
+        <select id="ape16ConvPalette" style="margin-left:8px">
+          <option value="6">6</option>
+          <option value="8" selected>8 — recommended</option>
+          <option value="10">10</option>
+          <option value="12">12</option>
+        </select>
+      </label>
+
+      <label>Soft-alpha cutoff
+        <input id="ape16ConvAlpha" type="range" min="1" max="254" value="128">
+        <span id="ape16ConvAlphaOut">128</span>
+      </label>
+
+      <div style="padding:10px;border:1px solid #3f3f46;border-radius:10px;color:#9ee6aa">
+        ✓ preserve pure black<br>
+        ✓ preserve pure white<br>
+        ✓ no dithering<br>
+        ✓ no gradients<br>
+        ✓ no anti-aliasing<br>
+        ✓ no smoothing on enlargement
       </div>
-      <label>Simplification <input id="ape16ConvSimplify" type="range" min="1" max="10" value="8"> <span id="ape16ConvSimplifyOut">8</span></label>
-      <label>Contrast <input id="ape16ConvContrast" type="range" min="0" max="10" value="8"> <span id="ape16ConvContrastOut">8</span></label>
-      <label>Outline strength <input id="ape16ConvOutline" type="range" min="0" max="10" value="8"> <span id="ape16ConvOutlineOut">8</span></label>
-      <label>Palette size <input id="ape16ConvPalette" type="range" min="5" max="9" value="7"> <span id="ape16ConvPaletteOut">7</span></label>
-      <label>White cutoff <input id="ape16ConvCutoff" type="range" min="220" max="255" value="242"> <span id="ape16ConvCutoffOut">242</span></label>
-      <label><input id="ape16ConvFlat" type="checkbox" checked> Flat-color mode — suppress unnecessary shading</label>
-      <button id="ape16ConvConvert" type="button" style="font-weight:900">CONVERT TO APE16</button>
+
+      <button id="ape16ConvConvert" type="button" style="font-weight:900">
+        CLEAN & NORMALIZE PIXEL ART
+      </button>
     </div>
+
     <div style="margin-top:14px;max-width:512px;background:
       linear-gradient(45deg,#bbb 25%,transparent 25%),
       linear-gradient(-45deg,#bbb 25%,transparent 25%),
       linear-gradient(45deg,transparent 75%,#bbb 75%),
       linear-gradient(-45deg,transparent 75%,#bbb 75%);
       background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:white">
-      <canvas id="ape16ConvPreview" width="512" height="512" style="display:block;width:100%;image-rendering:pixelated"></canvas>
+      <canvas id="ape16ConvPreview" width="512" height="512"
+        style="display:block;width:100%;image-rendering:pixelated"></canvas>
     </div>
-    <p id="ape16ConvStatus" style="color:#e3bf68">Load a converter reference image.</p>
+
+    <p id="ape16ConvStatus" style="color:#e3bf68">Load the approved ape artwork.</p>
+
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button id="ape16ConvUseGenesis" type="button" disabled>Use Conversion as Genesis</button>
-      <button id="ape16ConvExport64" type="button" disabled>Export Conversion 64×64</button>
+      <button id="ape16ConvUseGenesis" type="button" disabled>Use Clean Master as Genesis</button>
+      <button id="ape16ConvExportMaster" type="button" disabled>Export Logical Master</button>
+      <button id="ape16ConvExport1024" type="button" disabled>Export 1024 PNG</button>
+      <button id="ape16ConvExport4096" type="button" disabled>Export 4096 PNG</button>
     </div>
-    <p style="color:#9ee6aa;font-size:12px;line-height:1.45">
-      64×64 logical source · solid RGBA cells · transparent background · no anti-aliasing · nearest-neighbor production exports remain handled by Pixel Studio.
+
+    <p style="color:#9ee6aa;font-size:12px;line-height:1.5">
+      128×128 → 4096×4096 is an exact ×32 integer nearest-neighbor enlargement.
+      Every logical pixel becomes a perfect 32×32 square in the 4K NFT.
     </p>
   `;
 
-  // Put converter before the existing assisted Genesis section when possible.
-  const assisted=[...document.querySelectorAll("section")].find(s=>s.textContent.includes("ASSISTED GENESIS CONSTRUCTION"));
+  const assisted=[...document.querySelectorAll("section")]
+    .find(s=>s.textContent.includes("ASSISTED GENESIS CONSTRUCTION"));
   if(assisted) assisted.parentNode.insertBefore(section,assisted);
   else document.querySelector("main")?.appendChild(section);
 
   $id("ape16ConvFile").addEventListener("change",e=>{
-    const f=e.target.files[0]; if(!f)return;
+    const f=e.target.files[0];
+    if(!f) return;
     const url=URL.createObjectURL(f);
-    const image=new Image();
-    image.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
       URL.revokeObjectURL(url);
-      conv.image=image;
-      $id("ape16ConvStatus").textContent="Converter reference loaded · adjust controls or convert.";
+      conv.image=img;
+      conv.ready=false;
+      drawPreview();
+      $id("ape16ConvStatus").textContent=
+        `Source loaded · ${img.width}×${img.height} · ready to clean`;
     };
-    image.src=url;
+    img.src=url;
   });
 
-  ["Scale","Simplify","Contrast","Outline","Palette","Cutoff"].forEach(name=>{
-    const input=$id("ape16Conv"+name), out=$id("ape16Conv"+name+"Out");
-    if(input&&out) input.addEventListener("input",()=>out.textContent=input.value+(name==="Scale"?"%":""));
+  $id("ape16ConvAlpha").addEventListener("input",e=>{
+    $id("ape16ConvAlphaOut").textContent=e.target.value;
   });
 
-  $id("ape16ConvConvert").addEventListener("click",convert);
+  $id("ape16ConvConvert").addEventListener("click",cleanAndNormalize);
   $id("ape16ConvUseGenesis").addEventListener("click",useAsGenesis);
-  $id("ape16ConvExport64").addEventListener("click",()=>downloadCanvas(conv.logical,64,"APE16_Converted_64x64.png"));
+  $id("ape16ConvExportMaster").addEventListener("click",()=>{
+    const n=conv.logical.width;
+    download(n,`APE16_CLEAN_MASTER_${n}x${n}.png`);
+  });
+  $id("ape16ConvExport1024").addEventListener("click",()=>download(1024,"APE16_1024.png"));
+  $id("ape16ConvExport4096").addEventListener("click",()=>download(4096,"APE16_4096.png"));
 })();
-
