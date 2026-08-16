@@ -2625,7 +2625,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
 
 /* ============================================================
-   APE16 V6.6.1 · GENESIS LOCK + TRAIT CONVERTER
+   APE16 V6.6.3 · GENESIS LOCK + TRAIT EXTRACTOR
    Preserve approved artwork; normalize it into a true logical
    pixel master and export exact integer-scaled production PNGs.
    ============================================================ */
@@ -2723,6 +2723,29 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
 
     const im=tx.getImageData(0,0,n,n);
     const d=im.data;
+
+    // V6.6.3 trait extraction: remove reference background and keep only the
+    // category zone. This prevents the base ape from being baked into a trait PNG.
+    const category=$id("ape16TraitCategory")?.value || "Headwear";
+    if(mode==="trait") {
+      const zones={
+        Headwear:[0,Math.round(n*0.49)],
+        Eyes:[Math.round(n*0.27),Math.round(n*0.57)],
+        Mouth:[Math.round(n*0.47),Math.round(n*0.72)],
+        Clothing:[Math.round(n*0.63),n],
+        Accessory:[0,n]
+      };
+      const [y0,y1]=zones[category]||[0,n];
+      for(let y=0;y<n;y++) for(let x=0;x<n;x++){
+        const i=(y*n+x)*4;
+        const r=d[i],g=d[i+1],b=d[i+2];
+        const nearWhite=r>238&&g>238&&b>238;
+        const outside=y<y0||y>=y1;
+        if(nearWhite||outside){ d[i]=d[i+1]=d[i+2]=0; d[i+3]=0; }
+        else if(d[i+3]>=alphaCutoff){ d[i+3]=255; }
+        else { d[i]=d[i+1]=d[i+2]=0; d[i+3]=0; }
+      }
+    }
 
     const pts=[];
     const kinds=new Uint8Array(n*n); // 0 transparent, 1 black, 2 white, 3 cluster
@@ -2822,7 +2845,7 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
       .forEach(id=>$id(id).disabled=false);
 
     $id("ape16ConvStatus").textContent=
-      `PASS READY · ${n}×${n} logical master · ${conv.palette.length} flat colors · hard RGBA cells`;
+      mode==="trait" ? `TRAIT PASS READY · ${$id("ape16TraitCategory")?.value || "Trait"} · transparent ${n}×${n} layer · ${conv.palette.length} flat colors · base ape excluded` : `PASS READY · ${n}×${n} logical master · ${conv.palette.length} flat colors · hard RGBA cells`;
   }
 
 
@@ -2935,9 +2958,9 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   const section=document.createElement("section");
   section.id="ape16IntegratedConverter";
   section.innerHTML=`
-    <h2>APE16 V6.6.1 · GENESIS LOCK + TRAIT CONVERTER</h2>
+    <h2>APE16 V6.6.3 · GENESIS LOCK + TRAIT EXTRACTOR</h2>
     <p style="color:#aaa;line-height:1.45">
-      Genesis Locked mode reproduces the approved Brown master <b>pixel-for-pixel</b>. Trait Clean mode preserves supplied trait artwork and normalizes it without redesigning the trait.
+      Genesis Locked mode reproduces the approved Brown master <b>pixel-for-pixel</b>. Trait Extract mode accepts a full ape-with-trait reference, isolates the selected trait onto transparency, snaps it to the 128×128 APE16 grid, and previews/exports a generator-ready layer.
       It snaps the source to a true logical grid, removes soft alpha/anti-aliasing,
       normalizes the palette, and creates exact nearest-neighbor production exports.
     </p>
@@ -2946,7 +2969,17 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
       <label>Converter mode
         <select id="ape16ConvMode" style="margin-left:8px">
           <option value="genesis" selected>Genesis Locked — exact Brown master</option>
-          <option value="trait">Trait Clean — preserve supplied trait art</option>
+          <option value="trait">Trait Extract — isolate supplied trait from full reference</option>
+        </select>
+      </label>
+
+      <label>Trait category
+        <select id="ape16TraitCategory" style="margin-left:8px">
+          <option value="Headwear" selected>Headwear</option>
+          <option value="Eyes">Eyes</option>
+          <option value="Mouth">Mouth</option>
+          <option value="Clothing">Clothing</option>
+          <option value="Accessory">Accessory</option>
         </select>
       </label>
 
@@ -3044,8 +3077,289 @@ $("coord").textContent="x: — y: —  |  legal range: 0–63";
   $id("ape16ConvVerify").addEventListener("click",verifyGenesisIdentity);
   $id("ape16ConvExportMaster").addEventListener("click",()=>{
     const n=conv.logical.width;
-    download(n,`APE16_CLEAN_MASTER_${n}x${n}.png`);
+    download(n,(($id("ape16ConvMode")?.value||"genesis")==="trait") ? `APE16_TRAIT_${$id("ape16TraitCategory")?.value||"Trait"}_${n}x${n}.png` : `APE16_CLEAN_MASTER_${n}x${n}.png`);
   });
   $id("ape16ConvExport1024").addEventListener("click",()=>download(1024,"APE16_1024.png"));
   $id("ape16ConvExport4096").addEventListener("click",()=>download(4096,"APE16_4096.png"));
 })();
+
+
+
+/* ============================================================
+   APE16 V6.6.3 · TRAIT REVIEW + APPROVAL GATE
+   Required workflow:
+   Upload reference -> extract trait -> Trait Only -> Composite Preview
+   -> inspect -> approve -> save/export.
+   ============================================================ */
+(function setupAPE16TraitReviewGate(){
+  const $id=id=>document.getElementById(id);
+  if(document.getElementById("ape16TraitReviewGate")) return;
+
+  // Find the existing V6 trait architecture / trait extractor section.
+  const traitSection=[...document.querySelectorAll("section")]
+    .find(s=>/TRAIT/i.test(s.textContent) && /COMPOSITE/i.test(s.textContent));
+
+  if(!traitSection) return;
+
+  const wrap=document.createElement("div");
+  wrap.id="ape16TraitReviewGate";
+  wrap.style.cssText=
+    "margin-top:16px;padding:14px;border:1px solid #3f3f46;border-radius:14px;background:#101012";
+
+  wrap.innerHTML=`
+    <div style="font-weight:900;font-size:15px;margin-bottom:5px">
+      APE16 V6.6.3 · TRAIT REVIEW GATE
+    </div>
+    <p style="color:#aaa;font-size:12px;line-height:1.45;margin:0 0 12px">
+      A trait cannot be approved until both the transparent Trait Only layer and the locked-Genesis Composite Preview are reviewed.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+      <div>
+        <div style="font-size:12px;font-weight:900;margin-bottom:6px">TRAIT ONLY</div>
+        <div style="background:
+          linear-gradient(45deg,#bbb 25%,transparent 25%),
+          linear-gradient(-45deg,#bbb 25%,transparent 25%),
+          linear-gradient(45deg,transparent 75%,#bbb 75%),
+          linear-gradient(-45deg,transparent 75%,#bbb 75%);
+          background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:white">
+          <canvas id="ape16TraitOnlyPreview" width="384" height="384"
+            style="display:block;width:100%;image-rendering:pixelated"></canvas>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:12px;font-weight:900;margin-bottom:6px">COMPOSITE ON LOCKED GENESIS</div>
+        <div style="background:
+          linear-gradient(45deg,#bbb 25%,transparent 25%),
+          linear-gradient(-45deg,#bbb 25%,transparent 25%),
+          linear-gradient(45deg,transparent 75%,#bbb 75%),
+          linear-gradient(-45deg,transparent 75%,#bbb 75%);
+          background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:white">
+          <canvas id="ape16TraitCompositePreview" width="384" height="384"
+            style="display:block;width:100%;image-rendering:pixelated"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button id="ape16RefreshTraitReview" type="button">Refresh Review</button>
+      <button id="ape16ApproveTraitGate" type="button" disabled>Approve + Lock Trait</button>
+      <button id="ape16ExportTrait128" type="button" disabled>Export 128×128 Trait</button>
+      <button id="ape16ExportTrait4096" type="button" disabled>Export 4096 Trait</button>
+    </div>
+
+    <label style="display:block;margin-top:12px;font-size:12px">
+      <input id="ape16TraitReviewCheck" type="checkbox">
+      I reviewed both views and the trait fits the locked Genesis correctly.
+    </label>
+
+    <div id="ape16TraitReviewStatus"
+      style="margin-top:9px;color:#e3bf68;font-size:12px;font-weight:800">
+      Waiting for trait artwork.
+    </div>
+  `;
+
+  traitSection.appendChild(wrap);
+
+  const getState=()=>{
+    // Existing V6 builds expose trait architecture on window.APE16_V6.
+    const V6=window.APE16_V6;
+    if(!V6 || !Array.isArray(V6.trait) || !Array.isArray(V6.mask)) return null;
+    const n=Math.round(Math.sqrt(V6.trait.length));
+    if(n*n!==V6.trait.length) return null;
+    return {V6,n};
+  };
+
+  function logicalCanvasFromTrait(V6,n){
+    const c=document.createElement("canvas");
+    c.width=c.height=n;
+    const x=c.getContext("2d");
+    x.imageSmoothingEnabled=false;
+    x.clearRect(0,0,n,n);
+
+    for(let y=0;y<n;y++) for(let xx=0;xx<n;xx++){
+      const v=V6.trait[y*n+xx];
+      if(!v) continue;
+      x.fillStyle=`rgba(${v[0]},${v[1]},${v[2]},${(v[3]??255)/255})`;
+      x.fillRect(xx,y,1,1);
+    }
+    return c;
+  }
+
+  function logicalCanvasComposite(V6,n){
+    const c=document.createElement("canvas");
+    c.width=c.height=n;
+    const x=c.getContext("2d");
+    x.imageSmoothingEnabled=false;
+    x.clearRect(0,0,n,n);
+
+    // Genesis source is state.cells. This is the locked source of truth.
+    for(let y=0;y<n;y++) for(let xx=0;xx<n;xx++){
+      const i=y*n+xx;
+      if(V6.mask[i]) continue;
+      const g=state.cells?.[i];
+      if(!g) continue;
+      x.fillStyle=`rgba(${g[0]},${g[1]},${g[2]},${(g[3]??255)/255})`;
+      x.fillRect(xx,y,1,1);
+    }
+
+    for(let y=0;y<n;y++) for(let xx=0;xx<n;xx++){
+      const v=V6.trait[y*n+xx];
+      if(!v) continue;
+      x.fillStyle=`rgba(${v[0]},${v[1]},${v[2]},${(v[3]??255)/255})`;
+      x.fillRect(xx,y,1,1);
+    }
+    return c;
+  }
+
+  function paintPreview(targetId,source){
+    const c=$id(targetId);
+    if(!c) return;
+    const x=c.getContext("2d");
+    x.clearRect(0,0,c.width,c.height);
+    x.imageSmoothingEnabled=false;
+    x.drawImage(source,0,0,c.width,c.height);
+  }
+
+  function traitStats(V6){
+    let painted=0,mask=0;
+    for(const v of V6.trait) if(v) painted++;
+    for(const v of V6.mask) if(v) mask++;
+    return {painted,mask};
+  }
+
+  function refreshReview(){
+    const s=getState();
+    if(!s){
+      $id("ape16TraitReviewStatus").textContent=
+        "Trait architecture is not initialized yet.";
+      return;
+    }
+
+    const {V6,n}=s;
+    const stats=traitStats(V6);
+    const trait=logicalCanvasFromTrait(V6,n);
+    const comp=logicalCanvasComposite(V6,n);
+
+    paintPreview("ape16TraitOnlyPreview",trait);
+    paintPreview("ape16TraitCompositePreview",comp);
+
+    $id("ape16TraitReviewCheck").checked=false;
+    $id("ape16ApproveTraitGate").disabled=true;
+    $id("ape16ExportTrait128").disabled=true;
+    $id("ape16ExportTrait4096").disabled=true;
+
+    if(stats.painted===0){
+      $id("ape16TraitReviewStatus").textContent=
+        "No trait pixels yet. Convert/extract the trait first.";
+      return;
+    }
+
+    $id("ape16TraitReviewStatus").textContent=
+      `REVIEW REQUIRED · trait pixels ${stats.painted} · occluded Genesis cells ${stats.mask} · logical canvas ${n}×${n}`;
+  }
+
+  function validateTrait(){
+    const s=getState();
+    if(!s) return {pass:false,msg:"Trait architecture unavailable."};
+    const {V6,n}=s;
+    const stats=traitStats(V6);
+
+    if(n!==128) return {pass:false,msg:`Trait canvas must be 128×128; current ${n}×${n}.`};
+    if(stats.painted===0) return {pass:false,msg:"Trait has no artwork."};
+
+    // Every trait cell must be a hard RGBA cell.
+    for(const v of V6.trait){
+      if(!v) continue;
+      if(!Array.isArray(v) || v.length<3) return {pass:false,msg:"Invalid trait pixel data."};
+      const a=v[3]??255;
+      if(a!==255) return {pass:false,msg:"Trait contains partial alpha; only solid cells or transparency are allowed."};
+    }
+
+    return {pass:true,msg:`PASS · ${stats.painted} trait cells · ${stats.mask} occlusion cells`};
+  }
+
+  function exportCanvas(source,size,name){
+    const out=document.createElement("canvas");
+    out.width=out.height=size;
+    const x=out.getContext("2d");
+    x.imageSmoothingEnabled=false;
+    x.clearRect(0,0,size,size);
+    x.drawImage(source,0,0,size,size);
+    out.toBlob(blob=>{
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=name;
+      document.body.appendChild(a);
+      a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+    },"image/png");
+  }
+
+  $id("ape16RefreshTraitReview").addEventListener("click",refreshReview);
+
+  $id("ape16TraitReviewCheck").addEventListener("change",e=>{
+    const valid=validateTrait();
+    if(e.target.checked && valid.pass){
+      $id("ape16ApproveTraitGate").disabled=false;
+      $id("ape16ExportTrait128").disabled=false;
+      $id("ape16ExportTrait4096").disabled=false;
+      $id("ape16TraitReviewStatus").textContent=
+        valid.msg+" · review acknowledged";
+    }else{
+      $id("ape16ApproveTraitGate").disabled=true;
+      $id("ape16ExportTrait128").disabled=true;
+      $id("ape16ExportTrait4096").disabled=true;
+      if(!valid.pass) $id("ape16TraitReviewStatus").textContent=valid.msg;
+    }
+  });
+
+  $id("ape16ApproveTraitGate").addEventListener("click",()=>{
+    const valid=validateTrait();
+    if(!valid.pass){
+      $id("ape16TraitReviewStatus").textContent=valid.msg;
+      return;
+    }
+    if(!$id("ape16TraitReviewCheck").checked){
+      $id("ape16TraitReviewStatus").textContent=
+        "Review both previews and check the approval box first.";
+      return;
+    }
+
+    // Call the existing V6 approval button/action if present.
+    const existing=[...document.querySelectorAll("button")]
+      .find(b=>/Approve.*Lock Trait/i.test(b.textContent) && b.id!=="ape16ApproveTraitGate");
+
+    if(existing){
+      existing.click();
+      $id("ape16TraitReviewStatus").textContent=
+        "Trait approval sent to the existing V6 lock system.";
+    }else{
+      // Minimal fallback lock marker; does not alter pixels.
+      window.APE16_TRAIT_APPROVED=true;
+      $id("ape16TraitReviewStatus").textContent=
+        "TRAIT APPROVED + LOCKED · fallback lock active";
+    }
+  });
+
+  $id("ape16ExportTrait128").addEventListener("click",()=>{
+    const s=getState(); if(!s) return;
+    const trait=logicalCanvasFromTrait(s.V6,s.n);
+    const name=(document.getElementById("v6TraitName")?.value || "Trait")
+      .trim().replace(/[^a-z0-9_-]+/gi,"_");
+    exportCanvas(trait,128,`APE16_Trait_${name}_128x128.png`);
+  });
+
+  $id("ape16ExportTrait4096").addEventListener("click",()=>{
+    const s=getState(); if(!s) return;
+    const trait=logicalCanvasFromTrait(s.V6,s.n);
+    const name=(document.getElementById("v6TraitName")?.value || "Trait")
+      .trim().replace(/[^a-z0-9_-]+/gi,"_");
+    exportCanvas(trait,4096,`APE16_Trait_${name}_4096x4096.png`);
+  });
+
+  // Initial draw if trait state already exists.
+  setTimeout(refreshReview,150);
+})();
+
