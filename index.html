@@ -1,28 +1,271 @@
-APE16 PRODUCTION
-Studio V7 · Character + Trait Builder
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d10">
+  <title>APE16 Studio V7</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">APE16 PRODUCTION</div>
+      <h1>Studio V7 · Character + Trait Builder</h1>
+      <div class="sub">True logical pixels · locked Genesis · generator-ready assets</div>
+    </div>
+    <div id="saveState" class="pill ok">READY</div>
+  </header>
 
-True logical pixels · locked Genesis · generator-ready assets
-READY
-1 · Project  2 · Genesis  3 · Traits  4 · Export
-✓ one logical cell = one solid RGBA color ✓ no anti-aliasing ✓ fixed origin ✓ exact 4K integer scale ✓ Genesis cannot drift
-1. Project + Grid Standard
+  <main>
+    <section class="card hero">
+      <div class="flow">
+        <button class="flowStep active" data-page="setup">1 · Project</button>
+        <button class="flowStep" data-page="genesis">2 · Genesis</button>
+        <button class="flowStep" data-page="traits">3 · Traits</button>
+        <button class="flowStep" data-page="export">4 · Export</button>
+      </div>
+      <div class="hardRules">
+        <span>✓ one logical cell = one solid RGBA color</span>
+        <span>✓ no anti-aliasing</span>
+        <span>✓ fixed origin</span>
+        <span>✓ exact 4K integer scale</span>
+        <span>✓ Genesis cannot drift</span>
+      </div>
+    </section>
 
-Choose the logical resolution once. Only resolutions that scale exactly into 4096×4096 are offered.
+    <section id="page-setup" class="page">
+      <div class="card">
+        <h2>1. Project + Grid Standard</h2>
+        <p class="muted">Choose the logical resolution once. Only resolutions that scale exactly into 4096×4096 are offered.</p>
+        <div class="grid2">
+          <label>Project name<input id="projectName" value="APE16"></label>
+          <label>Collection supply<input id="collectionSupply" type="number" min="1" value="3333"></label>
+        </div>
 
-Project name Collection supply
-Reference
+        <h3>Reference</h3>
+        <div class="row wrap">
+          <button id="loadBuiltInRef">Load Approved Brown Reference</button>
+          <label class="fileBtn">Choose Reference<input id="referenceFile" type="file" accept="image/*"></label>
+          <span id="refStatus" class="muted">No reference loaded.</span>
+        </div>
 
-Load Approved Brown Reference Choose Reference No reference loaded.
-Resolution Comparison
+        <h3>Resolution Comparison</h3>
+        <p class="muted">These previews are only for choosing the logical grid. They do not create artwork.</p>
+        <div id="resolutionPreviews" class="resolutionPreviews">
+          <button class="resCard" data-res="32"><canvas width="192" height="192"></canvas><b>32×32</b><small>4K scale ×128</small></button>
+          <button class="resCard selected" data-res="64"><canvas width="192" height="192"></canvas><b>64×64</b><small>4K scale ×64</small></button>
+          <button class="resCard" data-res="128"><canvas width="192" height="192"></canvas><b>128×128</b><small>4K scale ×32</small></button>
+        </div>
+        <div class="row wrap">
+          <button id="lockResolution" class="primary">Lock Resolution</button>
+          <span id="resolutionStatus" class="statusLine">Selected: 64×64</span>
+        </div>
 
-These previews are only for choosing the logical grid. They do not create artwork.
+        <details class="advanced">
+          <summary>Reference Calibration</summary>
+          <div class="grid2 compact">
+            <label>Scale <input id="refScale" type="range" min="50" max="150" value="100"><span id="refScaleOut">100%</span></label>
+            <label>Opacity <input id="refOpacity" type="range" min="0" max="100" value="55"><span id="refOpacityOut">55%</span></label>
+            <label>X offset <input id="refX" type="range" min="-64" max="64" value="0"><span id="refXOut">0</span></label>
+            <label>Y offset <input id="refY" type="range" min="-64" max="64" value="0"><span id="refYOut">0</span></label>
+          </div>
+          <div class="row wrap">
+            <button id="lockReference">Lock Reference Placement</button>
+            <button id="unlockReference" disabled>Unlock Reference</button>
+            <span id="referenceLockStatus" class="statusLine">Reference unlocked</span>
+          </div>
+        </details>
+      </div>
+    </section>
 
-32×324K scale ×128  64×644K scale ×64  128×1284K scale ×32
-Lock Resolution Selected: 64×64
-Reference Calibration
-2. Brown Genesis Builder
+    <section id="page-genesis" class="page hidden">
+      <div class="card">
+        <div class="sectionHead">
+          <div>
+            <h2>2. Brown Genesis Builder</h2>
+            <p class="muted">Build directly on the locked logical grid. The reference is a real tracing guide under the grid.</p>
+          </div>
+          <div id="genesisLockBadge" class="pill warn">WORKING</div>
+        </div>
 
-Build directly on the locked logical grid. The reference is a real tracing guide under the grid.
+        <div class="editorLayout">
+          <div>
+            <div class="toolbar">
+              <button data-tool="pencil" class="tool active">Pencil</button>
+              <button data-tool="trace" class="tool">Trace Ref</button>
+              <button data-tool="eraser" class="tool">Eraser</button>
+              <button data-tool="fill" class="tool">Fill</button>
+              <button data-tool="eyedropper" class="tool">Eyedropper</button>
+              <button id="undoBtn">Undo</button>
+              <button id="redoBtn">Redo</button>
+              <button id="toggleGrid">Grid ON</button>
+              <button id="toggleReference">Reference ON</button>
+            </div>
 
-WORKING
-Pencil  Trace Ref  Eraser  Fill  Eyedropper  Undo  Redo  Grid ON  Reference ON
+            <div class="canvasShell">
+              <canvas id="editorCanvas" width="768" height="768"></canvas>
+            </div>
+            <div id="cursorInfo" class="statusLine">x: — y: —</div>
+          </div>
+
+          <aside>
+            <h3>Color</h3>
+            <input id="colorPicker" type="color" value="#000000">
+            <div id="palette" class="palette"></div>
+            <button id="addPaletteColor">Add Color</button>
+
+            <h3>Genesis validation</h3>
+            <div id="genesisValidation" class="validation">Not validated.</div>
+            <div class="stack">
+              <button id="validateGenesis">Validate Genesis</button>
+              <button id="approveGenesis" class="primary">Approve + Lock Genesis</button>
+              <button id="createGenesisRevision" disabled>Create Genesis Revision</button>
+              <button id="exportGenesisLogical">Export Logical PNG</button>
+              <button id="exportGenesis4k">Export 4096 PNG</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-traits" class="page hidden">
+      <div class="card">
+        <div class="sectionHead">
+          <div>
+            <h2>3. Trait Builder</h2>
+            <p class="muted">Every trait is created natively on the same locked grid. Reference images guide you; they never alter Genesis.</p>
+          </div>
+          <div id="traitCountBadge" class="pill">0 APPROVED</div>
+        </div>
+
+        <div class="traitSetup">
+          <label>Category
+            <select id="traitCategory">
+              <option>Background</option>
+              <option>Body</option>
+              <option>Clothing</option>
+              <option>Mouth</option>
+              <option>Eyes</option>
+              <option selected>Headwear</option>
+              <option>Accessories</option>
+            </select>
+          </label>
+          <label>Trait name<input id="traitName" placeholder="Orange Bucket Hat"></label>
+          <label>Rarity weight<input id="traitWeight" type="number" min="0.0001" step="0.1" value="1"></label>
+          <label class="reviewCheck"><input id="allowEmptyTrait" type="checkbox"> Intentional empty / None trait</label>
+          <button id="newTrait" class="primary">New Trait</button>
+          <label class="fileBtn">Load Trait Reference<input id="traitReferenceFile" type="file" accept="image/*"></label>
+        </div>
+
+        <div class="editorLayout">
+          <div>
+            <div class="toolbar">
+              <button data-trait-tool="pencil" class="traitTool active">Pencil</button>
+              <button data-trait-tool="trace" class="traitTool">Trace Ref</button>
+              <button data-trait-tool="eraser" class="traitTool">Eraser</button>
+              <button data-trait-tool="fill" class="traitTool">Fill</button>
+              <button data-trait-tool="eyedropper" class="traitTool">Eyedropper</button>
+              <button data-trait-tool="mask" class="traitTool">Mask</button>
+              <button data-trait-tool="unmask" class="traitTool">Unmask</button>
+              <button id="traitUndo">Undo</button>
+              <button id="traitRedo">Redo</button>
+            </div>
+            <div class="canvasShell">
+              <canvas id="traitEditorCanvas" width="768" height="768"></canvas>
+            </div>
+            <div id="traitCursorInfo" class="statusLine">x: — y: —</div>
+          </div>
+
+          <aside>
+            <h3>Live Review</h3>
+            <div class="previewPair">
+              <div><b>Trait Only</b><canvas id="traitOnlyPreview" width="256" height="256"></canvas></div>
+              <div><b>Final Composite</b><canvas id="compositePreview" width="256" height="256"></canvas></div>
+            </div>
+            <div id="traitValidation" class="validation">Create or load a trait.</div>
+            <label class="reviewCheck"><input id="reviewConfirmed" type="checkbox"> I reviewed the final composite and the trait fits correctly.</label>
+            <div class="stack">
+              <button id="validateTrait">Validate Trait</button>
+              <button id="approveTrait" class="primary" disabled>Approve + Lock Trait</button>
+              <button id="exportTraitLogical" disabled>Export Logical Trait</button>
+              <button id="exportTrait4k" disabled>Export 4096 Trait</button>
+              <button id="nextTrait" disabled>Next Trait</button>
+            </div>
+          </aside>
+        </div>
+
+        <details class="advanced">
+          <summary>Advanced Trait Controls</summary>
+          <p class="muted">The trait reference is a real tracing underlay. Align it to the locked Genesis grid, then lock its placement. Masks hide Genesis cells during composite/generation; mask cells are never visible artwork.</p>
+          <div class="grid2 compact">
+            <label>Trait reference scale <input id="traitRefScale" type="range" min="50" max="150" value="100"><span id="traitRefScaleOut">100%</span></label>
+            <label>Trait reference opacity <input id="traitRefOpacity" type="range" min="0" max="100" value="55"><span id="traitRefOpacityOut">55%</span></label>
+            <label>Trait reference X <input id="traitRefX" type="range" min="-64" max="64" value="0"><span id="traitRefXOut">0</span></label>
+            <label>Trait reference Y <input id="traitRefY" type="range" min="-64" max="64" value="0"><span id="traitRefYOut">0</span></label>
+          </div>
+          <div class="row wrap">
+            <button id="lockTraitReference">Lock Trait Reference</button>
+            <button id="unlockTraitReference" disabled>Unlock Trait Reference</button>
+            <span id="traitRefLockStatus" class="statusLine">Trait reference unlocked</span>
+          </div>
+          <div class="row wrap">
+            <button id="maskFromTrait">Mask Under Trait</button>
+            <button id="clearMask">Clear Mask</button>
+            <button id="clearTrait">Clear Trait Artwork</button>
+          </div>
+        </details>
+
+        <h3>Approved Asset Library</h3>
+        <div class="assetRow assetHeader"><b>Category</b><b>Trait</b><b>Weight</b><b>Revision</b><b>Actions</b></div><div id="assetLibrary" class="assetLibrary"></div>
+      </div>
+    </section>
+
+    <section id="page-export" class="page hidden">
+      <div class="card">
+        <h2>4. Generator Handoff</h2>
+        <p class="muted">V7 automatically uses category folders in generator layer order. Every PNG has the same logical dimensions and origin.</p>
+
+        <div class="layerOrder">
+          <span>1 Background</span><span>2 Body</span><span>3 Clothing</span><span>4 Mouth</span><span>5 Eyes</span><span>6 Headwear</span><span>7 Accessories</span>
+        </div>
+
+        <div id="exportAudit" class="validation">Run audit before export.</div>
+        <div class="row wrap">
+          <button id="runProjectAudit">Run Project Audit</button>
+          <button id="exportGeneratorZip" class="primary" disabled>Export Generator-Ready ZIP</button>
+          <button id="exportProjectJson">Save Editable Project</button>
+          <label class="fileBtn">Load Editable Project<input id="loadProjectJson" type="file" accept=".json,application/json"></label>
+          <button id="clearAutosave" class="danger">Clear Local Recovery</button>
+        </div>
+
+        <h3>Package Structure</h3>
+        <pre class="tree">Background/
+Body/
+  Brown_Genesis.png
+Clothing/
+Mouth/
+Eyes/
+Headwear/
+Accessories/
+masks/
+metadata/
+  project_manifest.json
+  traits.json</pre>
+      </div>
+    </section>
+
+    <section class="card recovery">
+      <div>
+        <b>Recovery</b>
+        <span id="recoveryStatus" class="muted">Autosave enabled.</span>
+      </div>
+      <button id="restoreAutosave">Restore Autosave</button>
+    </section>
+
+    <pre id="selftest" class="hidden"></pre>
+  </main>
+
+  <script src="app.js?v=7.0.0"></script>
+</body>
+</html>
