@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 
-const VERSION="7.2.0";
+const VERSION="7.3.0";
 const LAYER_ORDER=["Background","Body","Clothing","Mouth","Eyes","Headwear","Accessories"];
 const ANCHOR_RATIOS={
   head:[0.50,0.14],leftEye:[0.41,0.40],rightEye:[0.59,0.40],
@@ -272,6 +272,32 @@ function sampleReferenceAtCell(reference,x,y){
   const d=tx.getImageData(x,y,1,1).data;
   return d[3]===0?null:[d[0],d[1],d[2],255];
 }
+function colorDistanceSq(a,b){
+  const dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];
+  return dr*dr+dg*dg+db*db;
+}
+function nearestPaletteColor(rgb){
+  const palette=(state.genesis.palette||[]).map(hexToRgba);
+  if(!palette.length)return [rgb[0],rgb[1],rgb[2],255];
+  let best=palette[0],bestD=Infinity;
+  for(const p of palette){const d=colorDistanceSq(rgb,p);if(d<bestD){bestD=d;best=p}}
+  return best.slice();
+}
+function traceReferenceToGrid(){
+  if(state.genesis.locked){$("traceStatus").textContent="Genesis is locked. Create a revision before retracing.";return false;}
+  if(!state.resolutionLocked){$("traceStatus").textContent="Lock the logical resolution before tracing.";return false;}
+  if(!state.reference||!state.reference.img){$("traceStatus").textContent="Load the Brown reference before tracing.";return false;}
+  pushHistory("genesis");
+  const n=state.resolution,tmp=document.createElement("canvas");tmp.width=tmp.height=n;
+  const tx=tmp.getContext("2d",{willReadFrequently:true});tx.clearRect(0,0,n,n);tx.imageSmoothingEnabled=false;
+  fitReference(tx,state.reference.img,n,state.reference.scale,state.reference.x,state.reference.y,1);
+  const image=tx.getImageData(0,0,n,n).data,next=makeCells(n);let painted=0;
+  for(let p=0;p<n*n;p++){const i=p*4;if(image[i+3]<128)continue;next[p]=nearestPaletteColor([image[i],image[i+1],image[i+2],255]);painted++;}
+  state.genesis.cells=next;
+  $("traceStatus").textContent=`TRACE PASS · ${painted} solid logical cells · ${n}×${n} · palette snapped`;
+  drawEditor();scheduleAutosave();return painted>0;
+}
+
 function floodFill(cells,x,y,newColor){
   const n=state.resolution,start=idx(x,y,n),old=cells[start];
   const eq=(a,b)=>a===b||(!a&&!b)||(a&&b&&a[0]===b[0]&&a[1]===b[1]&&a[2]===b[2]&&(a[3]??255)===(b[3]??255));
@@ -286,8 +312,7 @@ function applyGenesisTool(x,y,first=false){
   if(state.genesis.locked)return;
   const i=idx(x,y);if(first)pushHistory("genesis");
   if(state.tool==="pencil")state.genesis.cells[i]=hexToRgba(state.color);
-  if(state.tool==="trace"){const c=sampleReferenceAtCell(state.reference,x,y);if(c)state.genesis.cells[i]=c}
-  if(state.tool==="eraser")state.genesis.cells[i]=null;
+    if(state.tool==="eraser")state.genesis.cells[i]=null;
   if(state.tool==="eyedropper"){const c=state.genesis.cells[i];if(c){state.color=rgbaToHex(c);$("colorPicker").value=state.color;renderPalette()}}
   if(state.tool==="fill")floodFill(state.genesis.cells,x,y,hexToRgba(state.color));
   drawEditor();scheduleAutosave();
@@ -295,13 +320,14 @@ function applyGenesisTool(x,y,first=false){
 
 let drawing=false,lastCell="";
 $("editorCanvas").addEventListener("pointerdown",e=>{drawing=true;$("editorCanvas").setPointerCapture(e.pointerId);const p=eventCell(e,$("editorCanvas"));lastCell=p.x+","+p.y;applyGenesisTool(p.x,p.y,true)});
-$("editorCanvas").addEventListener("pointermove",e=>{const p=eventCell(e,$("editorCanvas"));$("cursorInfo").textContent=`x: ${p.x} · y: ${p.y} · cell ${idx(p.x,p.y)}`;if(drawing&&["pencil","trace","eraser"].includes(state.tool)&&lastCell!==p.x+","+p.y){lastCell=p.x+","+p.y;applyGenesisTool(p.x,p.y,false)}});
+$("editorCanvas").addEventListener("pointermove",e=>{const p=eventCell(e,$("editorCanvas"));$("cursorInfo").textContent=`x: ${p.x} · y: ${p.y} · cell ${idx(p.x,p.y)}`;if(drawing&&["pencil","eraser"].includes(state.tool)&&lastCell!==p.x+","+p.y){lastCell=p.x+","+p.y;applyGenesisTool(p.x,p.y,false)}});
 window.addEventListener("pointerup",()=>drawing=false);
 document.querySelectorAll(".tool").forEach(b=>b.onclick=()=>{state.tool=b.dataset.tool;document.querySelectorAll(".tool").forEach(x=>x.classList.toggle("active",x===b))});
 $("undoBtn").onclick=()=>{if(!state.history.length)return;state.redo.push(snapshot(state.genesis.cells));state.genesis.cells=state.history.pop();drawEditor();scheduleAutosave()};
 $("redoBtn").onclick=()=>{if(!state.redo.length)return;state.history.push(snapshot(state.genesis.cells));state.genesis.cells=state.redo.pop();drawEditor();scheduleAutosave()};
 $("toggleGrid").onclick=()=>{state.showGrid=!state.showGrid;$("toggleGrid").textContent=state.showGrid?"Grid ON":"Grid OFF";drawEditor();drawTraitEditor()};
 $("toggleReference").onclick=()=>{state.showReference=!state.showReference;$("toggleReference").textContent=state.showReference?"Reference ON":"Reference OFF";drawEditor();drawTraitEditor()};
+$("traceReferenceAll").onclick=()=>{const ok=traceReferenceToGrid();if(ok)$("validateGenesis").click();};
 $("genesisCellSize").onchange=e=>{
   state.genesisCellSize=Number(e.target.value);
   drawEditor();
@@ -729,6 +755,9 @@ if(location.search.includes("selftest=1")){
   });
 }
 
+function exactCellsEqual(a,b){if(!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length)return false;for(let i=0;i<a.length;i++){const x=a[i],y=b[i];if(x===null&&y===null)continue;if(!x||!y||x.length!==y.length)return false;for(let j=0;j<x.length;j++)if(x[j]!==y[j])return false;}return true;}
+window.__APE16_V7_TEST__={state,traceReferenceToGrid,setPage,serializeProject,restoreProject,exactCellsEqual,makeCells,idx,floodFill,hexToRgba};
+
 function startupCheck(){
   const required=["page-setup","page-genesis","page-traits","page-export","editorCanvas","traitEditorCanvas"];
   const missing=required.filter(id=>!$(id));
@@ -738,6 +767,7 @@ function startupCheck(){
     return false;
   }
   if(status)status.textContent=`STARTUP PASS · V${VERSION} · all production pages loaded`;
+  const chain=$("chainStatus");if(chain)chain.textContent="CHAIN READY · logical editor online";
   return true;
 }
 
