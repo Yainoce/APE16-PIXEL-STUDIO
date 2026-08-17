@@ -11,7 +11,7 @@
   <header class="topbar">
     <div>
       <div class="eyebrow">APE16 PRODUCTION</div>
-      <h1>Studio V7.2 · Character + Trait Builder</h1>
+      <h1>Studio V7.3 · Character + Trait Builder</h1>
       <div class="sub">True logical pixels · locked Genesis · generator-ready assets</div>
     </div>
     <div id="saveState" class="pill ok">READY</div>
@@ -93,7 +93,7 @@
           <div>
             <div class="toolbar">
               <button data-tool="pencil" class="tool active">Pencil</button>
-              <button data-tool="trace" class="tool">Trace Ref</button>
+              <button id="traceReferenceAll" type="button">Trace Reference to Grid</button>
               <button data-tool="eraser" class="tool">Eraser</button>
               <button data-tool="fill" class="tool">Fill</button>
               <button data-tool="eyedropper" class="tool">Eyedropper</button>
@@ -126,6 +126,7 @@
             <button id="addPaletteColor">Add Color</button>
 
             <h3>Genesis validation</h3>
+            <div id="traceStatus" class="statusLine">Reference not traced yet.</div>
             <div id="genesisValidation" class="validation">Not validated.</div>
             <div class="stack">
               <button id="validateGenesis">Validate Genesis</button>
@@ -279,7 +280,7 @@ metadata/
       <div>
         <b>Recovery</b>
         <span id="recoveryStatus" class="muted">Autosave enabled.</span>
-        <div id="startupStatus" class="statusLine">Startup check pending.</div>
+        <div id="startupStatus" class="statusLine">Startup check pending.</div><div id="chainStatus" class="statusLine">Production-chain check pending.</div>
       </div>
       <button id="restoreAutosave">Restore Autosave</button>
     </section>
@@ -287,6 +288,6 @@ metadata/
     <pre id="selftest" class="hidden"></pre>
   </main>
 
-  <script src="app.js?v=7.2.0"></script>
+  <script src="app.js?v=7.3.0"></script>
 </body>
 </html>
