@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 
-const VERSION="8.0.0";
+const VERSION="9.0.0";
 const LAYER_ORDER=["Background","Body","Clothing","Mouth","Eyes","Headwear","Accessories"];
 const ANCHOR_RATIOS={
   head:[0.50,0.14],leftEye:[0.41,0.40],rightEye:[0.59,0.40],
@@ -30,7 +30,7 @@ const state={
   reference:{img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false},
   genesis:{cells:[],locked:false,revision:1,palette:["#000000","#5b1908","#8a2c0f","#bd4c18","#f2a534","#ffd078","#ffffff"]},
   history:[],redo:[],
-  tool:"pencil",color:"#000000",showGrid:true,showReference:true,genesisCellSize:8,traitCellSize:8,
+  tool:"pencil",color:"#000000",showGrid:true,showReference:true,showTraitReference:true,genesisCellSize:8,traitCellSize:8,
   traitReference:{img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false},
   workingTrait:null,
   traitHistory:[],traitRedo:[],traitTool:"pencil",
@@ -189,14 +189,14 @@ function configureLogicalCanvas(canvas,cellSize){
   canvas.style.height=px+"px";
 }
 
-function drawGridCanvas(canvas,cells,reference,mask=null,compositeBase=null,cellSize=10){
+function drawGridCanvas(canvas,cells,reference,mask=null,compositeBase=null,cellSize=10,showReference=true){
   const n=state.resolution;
   configureLogicalCanvas(canvas,cellSize);
   const ctx=canvas.getContext("2d");
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.imageSmoothingEnabled=false;
 
-  if(reference && state.showReference){
+  if(reference && showReference){
     const tmp=document.createElement("canvas");
     tmp.width=tmp.height=n;
     const tx=tmp.getContext("2d");
@@ -243,13 +243,13 @@ function drawGridCanvas(canvas,cells,reference,mask=null,compositeBase=null,cell
   }
 }
 function drawEditor(){
-  drawGridCanvas($("editorCanvas"),state.genesis.cells,state.reference,null,null,state.genesisCellSize);
+  drawGridCanvas($("editorCanvas"),state.genesis.cells,state.reference,null,null,state.genesisCellSize,state.showReference);
 }
 function drawTraitEditor(){
   const c=$("traitEditorCanvas");
   configureLogicalCanvas(c,state.traitCellSize);
   if(!state.workingTrait){c.getContext("2d").clearRect(0,0,c.width,c.height);return}
-  drawGridCanvas(c,state.workingTrait.cells,state.traitReference,state.workingTrait.mask,state.genesis.cells,state.traitCellSize);
+  drawGridCanvas(c,state.workingTrait.cells,state.traitReference,state.workingTrait.mask,state.genesis.cells,state.traitCellSize,state.showTraitReference);
 }
 function eventCell(e,canvas){
   const r=canvas.getBoundingClientRect();
@@ -460,13 +460,22 @@ $("exportGenesis4k").onclick=()=>exportCells(state.genesis.cells,4096,"APE16_Bro
 
 function setTraitReference(dataURL){
   state.traitReference.dataURL=dataURL;
+  if($("traitReferenceStatus"))$("traitReferenceStatus").textContent="Loading trait reference…";
   loadImageFromDataURL(dataURL,img=>{
     state.traitReference.img=img || null;
+    state.showTraitReference=true;
+    if($("toggleTraitReference"))$("toggleTraitReference").textContent="Trait Reference ON";
+    if($("traitReferenceStatus"))$("traitReferenceStatus").textContent=img?`LOADED · ${img.naturalWidth||img.width}×${img.naturalHeight||img.height}`:"Trait reference failed to decode.";
     drawTraitEditor();
     scheduleAutosave();
   });
 }
-$("traitReferenceFile").onchange=e=>{const f=e.target.files[0];if(f)fileToDataURL(f,setTraitReference)};
+$("traitReferenceFile").onchange=e=>{
+  const f=e.target.files?.[0];
+  if(!f){if($("traitReferenceStatus"))$("traitReferenceStatus").textContent="No trait reference selected.";return}
+  if(f.type && !f.type.startsWith("image/")){if($("traitReferenceStatus"))$("traitReferenceStatus").textContent="Please choose an image file.";return}
+  fileToDataURL(f,setTraitReference);
+};
 ["traitRefScale","traitRefOpacity","traitRefX","traitRefY"].forEach(id=>{
   $(id).oninput=e=>{
     if(state.traitReference.locked){
@@ -500,7 +509,12 @@ $("newTrait").onclick=()=>{
   if(!state.genesis.locked){$("traitValidation").className="validation fail";$("traitValidation").textContent="Lock Brown Genesis before creating traits.";return}
   const name=$("traitName").value.trim();if(!name){$("traitValidation").className="validation fail";$("traitValidation").textContent="Enter a trait name first.";return}
   state.workingTrait={category:$("traitCategory").value,name,weight:Number($("traitWeight").value)||1,allowEmpty:$("allowEmptyTrait").checked,revision:1,cells:makeCells(state.resolution),mask:new Array(state.resolution**2).fill(false),approved:false};
-  state.traitHistory=[];state.traitRedo=[];$("reviewConfirmed").checked=false;$("approveTrait").disabled=true;drawTraitEditor();refreshTraitPreviews();$("traitValidation").className="validation";$("traitValidation").textContent="Working trait created. Draw directly on the logical grid.";scheduleAutosave();
+  state.traitHistory=[];state.traitRedo=[];
+  state.traitReference={img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false};state.showTraitReference=true;
+  $("traitReferenceFile").value="";
+  if($("traitReferenceStatus"))$("traitReferenceStatus").textContent="No trait reference loaded.";
+  if($("toggleTraitReference"))$("toggleTraitReference").textContent="Trait Reference ON";
+  if($("traitGridInfo"))$("traitGridInfo").textContent=`LOCKED GRID · ${state.resolution}×${state.resolution} · ${state.resolution**2} cells · Genesis origin inherited`;$("reviewConfirmed").checked=false;$("approveTrait").disabled=true;drawTraitEditor();refreshTraitPreviews();$("traitValidation").className="validation";$("traitValidation").textContent="Working trait created. Draw directly on the logical grid.";scheduleAutosave();
 };
 
 function applyTraitTool(x,y,first=false){
@@ -547,7 +561,7 @@ function validateWorkingTrait(){
   if(!pass)return {pass:false,msg:`FAIL\nPainted: ${v.painted}\nPartial alpha: ${v.partial}\n${v.issues.join("\n")}`};
   return {pass:true,msg:`PASS\n${state.workingTrait.category} / ${state.workingTrait.name}${allowEmpty?" · intentional empty allowed":""}\nPainted cells: ${v.painted}\nMask cells: ${state.workingTrait.mask.filter(Boolean).length}\nCanvas: ${state.resolution}×${state.resolution}`};
 }
-$("validateTrait").onclick=()=>{const v=validateWorkingTrait();$("traitValidation").className="validation "+(v.pass?"pass":"fail");$("traitValidation").textContent=v.msg;$("approveTrait").disabled=!(v.pass&&$("reviewConfirmed").checked)};
+$("validateTrait").onclick=()=>{const v=validateWorkingTrait();$("traitValidation").className="validation "+(v.pass?"pass":"fail");$("traitValidation").textContent=`GRID ${state.resolution}×${state.resolution} · ${state.resolution**2} cells · `+v.msg;$("approveTrait").disabled=!(v.pass&&$("reviewConfirmed").checked)};
 $("reviewConfirmed").onchange=()=>$("validateTrait").click();
 $("approveTrait").onclick=()=>{
   const v=validateWorkingTrait();if(!v.pass||!$("reviewConfirmed").checked)return;
@@ -559,7 +573,7 @@ $("approveTrait").onclick=()=>{
   $("traitValidation").className="validation pass";$("traitValidation").textContent=`APPROVED + LOCKED\n${saved.category} / ${saved.name} · revision ${saved.revision}`;
   renderAssetLibrary();writeAutosaveNow();
 };
-$("nextTrait").onclick=()=>{$("traitName").value="";$("allowEmptyTrait").checked=false;state.workingTrait=null;state.traitReference={img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false};$("traitReferenceFile").value="";$("reviewConfirmed").checked=false;["approveTrait","exportTraitLogical","exportTrait4k","nextTrait"].forEach(id=>$(id).disabled=true);drawTraitEditor();refreshTraitPreviews();$("traitValidation").className="validation";$("traitValidation").textContent="Ready for next trait."};
+$("nextTrait").onclick=()=>{$("traitName").value="";$("allowEmptyTrait").checked=false;state.workingTrait=null;state.traitReference={img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false};state.showTraitReference=true;$("traitReferenceFile").value="";$("reviewConfirmed").checked=false;["approveTrait","exportTraitLogical","exportTrait4k","nextTrait"].forEach(id=>$(id).disabled=true);drawTraitEditor();refreshTraitPreviews();$("traitValidation").className="validation";$("traitValidation").textContent="Ready for next trait."};
 $("maskFromTrait").onclick=()=>{if(!state.workingTrait)return;pushTraitHistory();state.workingTrait.mask=state.workingTrait.cells.map(Boolean);drawTraitEditor();refreshTraitPreviews();scheduleAutosave()};
 $("clearMask").onclick=()=>{if(!state.workingTrait)return;pushTraitHistory();state.workingTrait.mask.fill(false);drawTraitEditor();refreshTraitPreviews();scheduleAutosave()};
 $("clearTrait").onclick=()=>{if(!state.workingTrait)return;pushTraitHistory();state.workingTrait.cells=makeCells(state.resolution);drawTraitEditor();refreshTraitPreviews();scheduleAutosave()};
@@ -597,6 +611,8 @@ function serializeProject(includeRefs=true){
   return {
     format:"APE16_STUDIO_V7",version:VERSION,savedAt:new Date().toISOString(),projectName:state.projectName,supply:state.supply,resolution:state.resolution,resolutionLocked:state.resolutionLocked,genesisCellSize:state.genesisCellSize,traitCellSize:state.traitCellSize,
     reference:{dataURL:includeRefs?state.reference.dataURL:null,scale:state.reference.scale,x:state.reference.x,y:state.reference.y,opacity:state.reference.opacity,locked:state.reference.locked},
+    traitReference:{dataURL:includeRefs?state.traitReference.dataURL:null,scale:state.traitReference.scale,x:state.traitReference.x,y:state.traitReference.y,opacity:state.traitReference.opacity,locked:state.traitReference.locked,visible:state.showTraitReference},
+    workingTrait:state.workingTrait?{category:state.workingTrait.category,name:state.workingTrait.name,weight:state.workingTrait.weight,allowEmpty:!!state.workingTrait.allowEmpty,revision:state.workingTrait.revision,cells:sparseCells(state.workingTrait.cells),mask:state.workingTrait.mask.map((v,i)=>v?i:-1).filter(i=>i>=0),approved:!!state.workingTrait.approved}:null,
     genesis:{cells:sparseCells(state.genesis.cells),locked:state.genesis.locked,revision:state.genesis.revision,palette:state.genesis.palette},
     traits:state.traits.map(t=>({category:t.category,name:t.name,weight:t.weight,allowEmpty:!!t.allowEmpty,revision:t.revision,cells:sparseCells(t.cells),mask:t.mask.map((v,i)=>v?i:-1).filter(i=>i>=0),approved:true}))
   };
@@ -627,6 +643,10 @@ function restoreProject(p){
     locked:!!ref.locked
   };
 
+  const tr=p.traitReference||{};
+  state.traitReference={img:null,dataURL:tr.dataURL||null,scale:Number(tr.scale)||100,x:Number(tr.x)||0,y:Number(tr.y)||0,opacity:Number(tr.opacity)||55,locked:!!tr.locked};
+  state.showTraitReference=tr.visible!==false;
+
   const g=p.genesis||{};
   state.genesis={
     cells:inflateCells(g.cells||[],state.resolution),
@@ -650,7 +670,8 @@ function restoreProject(p){
     approved:true
   }));
 
-  state.workingTrait=null;
+  const wt=p.workingTrait;
+  state.workingTrait=wt?{category:wt.category||"Accessories",name:wt.name||"Trait",weight:Number(wt.weight)||1,allowEmpty:!!wt.allowEmpty,revision:Number(wt.revision)||1,cells:inflateCells(wt.cells||[],state.resolution),mask:(()=>{const m=new Array(state.resolution**2).fill(false);for(const i of (wt.mask||[]))if(Number.isInteger(i)&&i>=0&&i<m.length)m[i]=true;return m;})(),approved:!!wt.approved}:null;
   state.history=[];
   state.redo=[];
   state.traitHistory=[];
@@ -699,6 +720,17 @@ function restoreProject(p){
     const s=$("recoveryStatus");
     if(s)s.textContent="Autosave restored; no embedded reference image.";
   }
+
+  if(state.traitReference.dataURL){
+    loadImageFromDataURL(state.traitReference.dataURL,img=>{
+      state.traitReference.img=img||null;
+      if($("traitReferenceStatus"))$("traitReferenceStatus").textContent=img?`LOADED · ${img.naturalWidth||img.width}×${img.naturalHeight||img.height}`:"Trait reference failed to decode.";
+      if($("toggleTraitReference"))$("toggleTraitReference").textContent=state.showTraitReference?"Trait Reference ON":"Trait Reference OFF";
+      drawTraitEditor();
+    });
+  }
+  if(state.workingTrait&&$("traitGridInfo"))$("traitGridInfo").textContent=`LOCKED GRID · ${state.resolution}×${state.resolution} · ${state.resolution**2} cells · Genesis origin inherited`;
+
 }function projectFingerprint(p){
   const q=JSON.parse(JSON.stringify(p));delete q.savedAt;
   return JSON.stringify(q);
@@ -872,6 +904,11 @@ function startupCheck(){
 }
 
 window.addEventListener("beforeunload",()=>{try{writeAutosaveNow()}catch(e){}});
+if($("toggleTraitReference"))$("toggleTraitReference").onclick=()=>{
+  state.showTraitReference=!state.showTraitReference;
+  $("toggleTraitReference").textContent=state.showTraitReference?"Trait Reference ON":"Trait Reference OFF";
+  drawTraitEditor();
+};
 startupCheck();
 setPage("setup");
 renderAssetLibrary();
