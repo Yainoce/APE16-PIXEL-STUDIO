@@ -3,110 +3,159 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b0d10">
-<title>APE16 Production Studio</title>
-<link rel="stylesheet" href="style.css">
+<meta name="theme-color" content="#0b0e12">
+<title>APE16 Production Studio 2</title>
+<link rel="stylesheet" href="style.css?v=2.0.0">
 </head>
 <body>
 <header>
-  <div><small>APE16 PRODUCTION</small><h1>APE16 Production Studio</h1>
-  <p>iPad-first asset pipeline · 64×64 canonical grid · 3,333 supply</p></div>
-  <span id="status" class="pill">READY</span>
+  <div><small>APE16 PRODUCTION</small><h1>APE16 Production Studio 2</h1>
+  <p>Integrated pixel editor → locked assets → 3,333 generator → metadata/export</p></div>
+  <span id="appStatus" class="pill">STARTING</span>
 </header>
-
 <nav>
 <button data-page="project" class="active">1 · Project</button>
-<button data-page="genesis">2 · Genesis</button>
-<button data-page="traits">3 · Traits</button>
-<button data-page="rules">4 · Rules</button>
+<button data-page="genesis">2 · Genesis Editor</button>
+<button data-page="traits">3 · Trait Studio</button>
+<button data-page="library">4 · Library + Rules</button>
 <button data-page="generate">5 · Generate</button>
 <button data-page="export">6 · Export</button>
 </nav>
-
 <main>
 <section id="project" class="page active">
 <h2>Project</h2>
 <div class="card grid2">
-<label>Project name<input id="projectName" value="APE16"></label>
+<label>Collection name<input id="collectionName" value="APE16"></label>
 <label>Supply<input id="supply" type="number" value="3333" min="1"></label>
-<label>Logical resolution<input value="64 × 64" disabled></label>
-<label>Final render<input value="4096 × 4096 (64× nearest)" disabled></label>
+<label>Description<textarea id="description" rows="3">APE16 — a 64×64 pixel-art ape collection.</textarea></label>
+<label>External URL<input id="externalURL" placeholder="https://..."></label>
+<label>Image base URI<input id="imageBaseURI" placeholder="ipfs://CID or https://..."></label>
+<label>Generation seed<input id="seed" value="APE16-GENESIS-3333"></label>
 </div>
-<div class="card">
-<h3>Layer order</h3><p>Background → Body → Clothing → Mouth → Eyes → Headwear → Accessories</p>
-<p class="ok">Genesis origin is fixed. Imported traits never reposition Genesis.</p>
-</div>
+<div class="card"><b>Canonical standard</b><p>64×64 logical pixels · 4,096 exact cells · RGBA alpha only 0/255 · final 4096×4096 = exact 64× nearest-neighbor · fixed origin.</p>
+<p><b>Layer order:</b> Background → Body → Clothing → Mouth → Eyes → Headwear → Accessories</p></div>
 <div class="actions">
 <button id="saveProject">Save Editable Project</button>
-<label class="filebtn">Load Editable Project<input id="loadProject" type="file" accept=".json,application/json"></label>
+<label class="fileBtn">Load Editable Project<input id="loadProject" type="file" accept=".json,application/json"></label>
+<button id="snapshot">Save Browser Snapshot</button>
+<button id="restoreSnapshot">Restore Browser Snapshot</button>
 </div>
+<div id="projectStatus" class="status">No saved project loaded.</div>
 </section>
 
 <section id="genesis" class="page">
-<h2>Brown Genesis</h2>
-<div class="card">
-<p>The included Brown Genesis is the canonical 64×64 production asset. No partial alpha, no anti-aliasing, no subpixel placement.</p>
-<div class="preview checker"><canvas id="genesisCanvas" width="64" height="64"></canvas></div>
-<pre id="genesisReport"></pre>
-</div>
+<h2>Genesis Pixel Editor</h2>
+<p>Edit the actual 64×64 Brown Genesis pixel-by-pixel. Once approved, lock it permanently before creating production traits.</p>
+<div id="genesisEditor"></div>
 <div class="actions"><button id="auditGenesis">Audit Genesis</button><button id="lockGenesis">Approve + Lock Genesis</button></div>
+<pre id="genesisReport"></pre>
 </section>
 
 <section id="traits" class="page">
-<h2>Trait Importer</h2>
-<div class="card grid2">
-<label>Category<select id="category"></select></label>
+<h2>Trait Studio</h2>
+<div class="card grid3">
+<label>Category<select id="traitCategory"></select></label>
 <label>Trait name<input id="traitName" placeholder="Orange Bucket Hat"></label>
-<label>Rarity weight<input id="weight" type="number" value="1" min="0" step="0.01"></label>
-<label class="check"><input id="noneTrait" type="checkbox"> Intentional None trait</label>
+<label>Rarity weight<input id="traitWeight" type="number" min="0" step="0.01" value="1"></label>
+<label class="inline"><input id="noneTrait" type="checkbox"> Intentional None trait</label>
+<button id="newTrait">New Trait</button>
+<button id="loadApprovedTrait">Load Selected Approved Trait Revision</button>
 </div>
-<div class="card">
-<p><b>Production rule:</b> import a transparent PNG already aligned to the same square character canvas. The studio converts it to the exact 64×64 logical grid, snaps alpha to 0/255, and rejects contaminated assets.</p>
-<div class="actions">
-<label class="filebtn">Choose Trait PNG<input id="traitFile" type="file" accept="image/png"></label>
-<label class="filebtn">Optional Occlusion Mask PNG<input id="maskFile" type="file" accept="image/png"></label>
-</div>
-<div id="traitStatus">No trait loaded.</div>
-<div class="compare">
-<div><b>Trait only</b><div class="preview checker"><canvas id="traitCanvas" width="64" height="64"></canvas></div></div>
-<div><b>Final composite</b><div class="preview checker"><canvas id="compositeCanvas" width="64" height="64"></canvas></div></div>
-</div>
+<div id="traitEditor"></div>
+<div class="actions"><button id="validateTrait">Validate Trait</button><button id="approveTrait" disabled>Approve + Lock Trait</button><button id="newRevision" disabled>Create Revision</button><button id="discardTrait">Discard Working Trait</button></div>
 <pre id="traitReport"></pre>
-</div>
-<div class="actions"><button id="validateTrait">Validate Trait</button><button id="approveTrait" disabled>Approve + Lock Trait</button></div>
-<div class="card"><h3>Approved Asset Library</h3><div id="assetLibrary"></div></div>
 </section>
 
-<section id="rules" class="page">
-<h2>Combination Rules</h2>
+<section id="library" class="page">
+<h2>Asset Library + Rules</h2>
 <div class="card">
-<p>Add pairwise conflicts only when two approved traits must never appear together.</p>
+<div id="assetLibrary"></div>
+</div>
+<div class="card">
+<h3>Conflict rules</h3>
+<p>Use these only when two traits must never appear together.</p>
 <div class="grid2"><label>Trait A<select id="ruleA"></select></label><label>Trait B<select id="ruleB"></select></label></div>
 <div class="actions"><button id="addConflict">Add Conflict</button></div>
-<div id="rulesList"></div>
+<div id="conflictList"></div>
 </div>
 </section>
 
 <section id="generate" class="page">
 <h2>Collection Generator</h2>
 <div class="card">
-<label>Seed<input id="seed" value="APE16-GENESIS-3333"></label>
-<div class="actions"><button id="previewGenerate">Generate 24 Preview Combinations</button><button id="planFull">Plan Full 3,333</button></div>
-<pre id="generateReport"></pre>
-<div id="comboPreview" class="thumbs"></div>
+<div class="actions"><button id="preview24">Generate 24 Preview NFTs</button><button id="plan3333">Plan Full 3,333</button></div>
+<pre id="generateReport"></pre><div id="previewGrid" class="previewGrid"></div>
 </div>
 </section>
 
 <section id="export" class="page">
-<h2>Audit + Export</h2>
+<h2>Production Audit + Export</h2>
 <div class="card"><button id="runAudit">Run Full Project Audit</button><pre id="auditReport"></pre></div>
-<div class="actions">
-<button id="exportAssets" disabled>Export Generator Asset ZIP</button>
-<button id="exportPlan" disabled>Export 3,333 Metadata + Combination Plan ZIP</button>
+<div class="card">
+<h3>Production source exports</h3>
+<div class="actions"><button id="exportAssetZip" disabled>Export Asset Library ZIP</button><button id="exportMetadataZip" disabled>Export 3,333 Metadata + Plan ZIP</button></div>
 </div>
-<p class="muted">The asset ZIP is the production source of truth. The plan ZIP contains deterministic combinations and metadata. Final 4096 PNG rendering can be done from these exact 64×64 layers without resampling drift.</p>
+<div class="card">
+<h3>Final image batch renderer</h3>
+<p>iPad-safe batches. 4096 renders are deliberately limited to 25 per ZIP to avoid crashing Safari.</p>
+<div class="grid3">
+<label>Start token<input id="batchStart" type="number" value="1" min="1" max="3333"></label>
+<label>End token<input id="batchEnd" type="number" value="25" min="1" max="3333"></label>
+<label>Output size<select id="renderSize"><option value="64">64×64</option><option value="1024">1024×1024</option><option value="4096" selected>4096×4096</option></select></label>
+</div>
+<div class="actions"><button id="renderBatch" disabled>Render Image Batch ZIP</button></div>
+<div id="batchStatus" class="status"></div>
+</div>
 </section>
 </main>
-<footer><span id="selftest">SELFTEST: pending</span> · APE16 Studio 1.0</footer>
-<script src="app.js"></script>
+<footer><span id="selfTest">SELFTEST pending</span> · Studio 2.0.0</footer>
+
+<template id="editorTemplate">
+<div class="editorShell">
+  <div class="editorTop card">
+    <div class="toolRow">
+      <button data-tool="pencil" class="active">Pencil</button><button data-tool="eraser">Eraser</button><button data-tool="fill">Fill</button><button data-tool="picker">Picker</button><button data-tool="line">Line</button><button data-tool="rect">Rect</button><button data-tool="mask">Mask</button><button data-tool="unmask">Unmask</button>
+    </div>
+    <div class="toolRow">
+      <button data-action="undo">Undo</button><button data-action="redo">Redo</button><button data-action="clear">Clear Layer</button><button data-action="mirror">Mirror Layer</button>
+      <label class="inline"><input data-opt="mirrorDraw" type="checkbox"> Mirror draw</label>
+      <label class="inline"><input data-opt="filledRect" type="checkbox"> Filled rect</label>
+      <label>Brush<select data-opt="brush"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+    </div>
+  </div>
+  <div class="editorBody">
+    <aside class="card editorSide">
+      <h3>Palette</h3><div data-role="palette" class="palette"></div>
+      <label>Active color<input data-role="color" type="color" value="#000000"></label>
+      <button data-action="addColor">Add Color</button>
+      <h3>View</h3>
+      <label class="inline"><input data-opt="grid" type="checkbox" checked> Grid</label>
+      <label class="inline"><input data-opt="base" type="checkbox" checked> Locked Genesis</label>
+      <label>Cell zoom<select data-opt="zoom"><option value="8">8 px</option><option value="10" selected>10 px</option><option value="12">12 px</option><option value="16">16 px</option></select></label>
+      <h3>Reference</h3>
+      <label class="fileBtn">Load Reference Image<input data-ref="file" type="file" accept="image/*"></label>
+      <label>Opacity<input data-ref="opacity" type="range" min="0" max="100" value="45"></label>
+      <label>Scale<input data-ref="scale" type="range" min="25" max="200" value="100"></label>
+      <label>X offset<input data-ref="x" type="range" min="-32" max="32" value="0"></label>
+      <label>Y offset<input data-ref="y" type="range" min="-32" max="32" value="0"></label>
+      <button data-action="toggleRef">Reference ON</button>
+      <h3>Production import</h3>
+      <label class="fileBtn">Import exact 64×64 Layer PNG<input data-import="layer" type="file" accept="image/png"></label>
+    </aside>
+    <div class="canvasCol">
+      <div class="canvasBar"><span data-role="coords">x: — y: — cell: —</span><span data-role="mode">PIXEL LAYER</span></div>
+      <div class="canvasScroll"><canvas data-role="canvas"></canvas></div>
+      <div class="status" data-role="editorStatus">Ready.</div>
+    </div>
+    <aside class="card editorPreview">
+      <h3>Live composite</h3><div class="checker previewBox"><canvas data-role="preview" width="64" height="64"></canvas></div>
+      <h3>Current layer</h3><div class="checker previewBox"><canvas data-role="layerPreview" width="64" height="64"></canvas></div>
+      <div data-role="validation"></div>
+      <div class="actions"><button data-action="export64">Export 64×64 PNG</button><button data-action="export1024">Export 1024 PNG</button><button data-action="export4096">Export 4096 PNG</button></div>
+    </aside>
+  </div>
+</div>
+</template>
+
+<script src="core.js?v=2.0.0"></script><script src="app.js?v=2.0.0"></script>
 </body></html>
