@@ -11,7 +11,7 @@
   <header class="topbar">
     <div>
       <div class="eyebrow">APE16 PRODUCTION</div>
-      <h1>Studio V7.3 · Character + Trait Builder</h1>
+      <h1>Studio V7.4 · Character + Trait Builder</h1>
       <div class="sub">True logical pixels · locked Genesis · generator-ready assets</div>
     </div>
     <div id="saveState" class="pill ok">READY</div>
@@ -103,12 +103,14 @@
               <button id="toggleReference">Reference ON</button>
               <label class="zoomControl">Cell Size
                 <select id="genesisCellSize">
+                  <option value="4">4 px</option>
                   <option value="6">6 px</option>
-                  <option value="10" selected>10 px</option>
+                  <option value="8" selected>8 px</option>
+                  <option value="10">10 px</option>
                   <option value="14">14 px</option>
-                  <option value="18">18 px</option>
                 </select>
               </label>
+              <button id="fitGenesisScreen">Fit Screen</button>
             </div>
 
             <div class="canvasViewport" id="genesisViewport">
@@ -126,7 +128,7 @@
             <button id="addPaletteColor">Add Color</button>
 
             <h3>Genesis validation</h3>
-            <div id="traceStatus" class="statusLine">Reference not traced yet.</div>
+            <div id="traceStatus" class="statusLine">Reference not traced yet.</div><div id="traceMetrics" class="statusLine">Edge-connected background removal ready.</div>
             <div id="genesisValidation" class="validation">Not validated.</div>
             <div class="stack">
               <button id="validateGenesis">Validate Genesis</button>
@@ -183,12 +185,14 @@
               <button id="traitRedo">Redo</button>
               <label class="zoomControl">Cell Size
                 <select id="traitCellSize">
+                  <option value="4">4 px</option>
                   <option value="6">6 px</option>
-                  <option value="10" selected>10 px</option>
+                  <option value="8" selected>8 px</option>
+                  <option value="10">10 px</option>
                   <option value="14">14 px</option>
-                  <option value="18">18 px</option>
                 </select>
               </label>
+              <button id="fitTraitScreen">Fit Screen</button>
             </div>
             <div class="canvasViewport" id="traitViewport">
               <div class="canvasShell logicalShell" id="traitCanvasShell">
@@ -288,6 +292,6 @@ metadata/
     <pre id="selftest" class="hidden"></pre>
   </main>
 
-  <script src="app.js?v=7.3.0"></script>
+  <script src="app.js?v=7.4.0"></script>
 </body>
 </html>
