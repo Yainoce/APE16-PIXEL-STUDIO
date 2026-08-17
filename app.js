@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 
-const VERSION="7.4.0";
+const VERSION="8.0.0";
 const LAYER_ORDER=["Background","Body","Clothing","Mouth","Eyes","Headwear","Accessories"];
 const ANCHOR_RATIOS={
   head:[0.50,0.14],leftEye:[0.41,0.40],rightEye:[0.59,0.40],
@@ -17,6 +17,8 @@ function anchorsForResolution(n){
   return out;
 }
 const STORAGE_KEY="APE16_STUDIO_V7_AUTOSAVE";
+const SNAPSHOT_KEY="APE16_STUDIO_V8_MANUAL_SNAPSHOT";
+const HISTORY_KEY="APE16_STUDIO_V8_AUTOSAVE_HISTORY";
 const $=id=>document.getElementById(id);
 
 const state={
@@ -436,9 +438,9 @@ $("validateGenesis").onclick=()=>{
 $("approveGenesis").onclick=()=>{
   const v=validateCells(state.genesis.cells);if(!v.pass){$("validateGenesis").click();return}
   state.genesis.locked=true;$("genesisLockBadge").textContent="APPROVED + LOCKED";$("genesisLockBadge").className="pill ok";
-  $("approveGenesis").disabled=true;$("createGenesisRevision").disabled=false;scheduleAutosave();
+  $("approveGenesis").disabled=true;$("createGenesisRevision").disabled=false;writeAutosaveNow();
 };
-$("createGenesisRevision").onclick=()=>{state.genesis.locked=false;state.genesis.revision++;$("genesisLockBadge").textContent=`REVISION ${state.genesis.revision}`;$("genesisLockBadge").className="pill warn";$("approveGenesis").disabled=false;$("createGenesisRevision").disabled=true;scheduleAutosave()};
+$("createGenesisRevision").onclick=()=>{state.genesis.locked=false;state.genesis.revision++;$("genesisLockBadge").textContent=`REVISION ${state.genesis.revision}`;$("genesisLockBadge").className="pill warn";$("approveGenesis").disabled=false;$("createGenesisRevision").disabled=true;writeAutosaveNow()};
 
 function cellsCanvas(cells,n=state.resolution){
   const c=document.createElement("canvas");c.width=c.height=n;const x=c.getContext("2d");x.imageSmoothingEnabled=false;
@@ -555,7 +557,7 @@ $("approveTrait").onclick=()=>{
   if(existing>=0){saved.revision=state.traits[existing].revision+1;state.traits[existing]=saved}else state.traits.push(saved);
   $("approveTrait").disabled=true;$("exportTraitLogical").disabled=false;$("exportTrait4k").disabled=false;$("nextTrait").disabled=false;
   $("traitValidation").className="validation pass";$("traitValidation").textContent=`APPROVED + LOCKED\n${saved.category} / ${saved.name} · revision ${saved.revision}`;
-  renderAssetLibrary();scheduleAutosave();
+  renderAssetLibrary();writeAutosaveNow();
 };
 $("nextTrait").onclick=()=>{$("traitName").value="";$("allowEmptyTrait").checked=false;state.workingTrait=null;state.traitReference={img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false};$("traitReferenceFile").value="";$("reviewConfirmed").checked=false;["approveTrait","exportTraitLogical","exportTrait4k","nextTrait"].forEach(id=>$(id).disabled=true);drawTraitEditor();refreshTraitPreviews();$("traitValidation").className="validation";$("traitValidation").textContent="Ready for next trait."};
 $("maskFromTrait").onclick=()=>{if(!state.workingTrait)return;pushTraitHistory();state.workingTrait.mask=state.workingTrait.cells.map(Boolean);drawTraitEditor();refreshTraitPreviews();scheduleAutosave()};
@@ -586,21 +588,21 @@ function renderAssetLibrary(){
   host.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>{
     const i=Number(b.dataset.delete),t=state.traits[i];
     if(!confirm(`Delete approved trait ${t.category} / ${t.name}?`))return;
-    state.traits.splice(i,1);renderAssetLibrary();scheduleAutosave();
+    state.traits.splice(i,1);renderAssetLibrary();writeAutosaveNow();
   });
 }
 function sparseCells(cells){const out=[];for(let i=0;i<cells.length;i++)if(cells[i])out.push([i,cells[i]]);return out}
 function inflateCells(sparse,n){const c=makeCells(n);for(const [i,v] of sparse||[])c[i]=v;return c}
 function serializeProject(includeRefs=true){
   return {
-    format:"APE16_STUDIO_V7",version:VERSION,projectName:state.projectName,supply:state.supply,resolution:state.resolution,resolutionLocked:state.resolutionLocked,genesisCellSize:state.genesisCellSize,traitCellSize:state.traitCellSize,
+    format:"APE16_STUDIO_V7",version:VERSION,savedAt:new Date().toISOString(),projectName:state.projectName,supply:state.supply,resolution:state.resolution,resolutionLocked:state.resolutionLocked,genesisCellSize:state.genesisCellSize,traitCellSize:state.traitCellSize,
     reference:{dataURL:includeRefs?state.reference.dataURL:null,scale:state.reference.scale,x:state.reference.x,y:state.reference.y,opacity:state.reference.opacity,locked:state.reference.locked},
     genesis:{cells:sparseCells(state.genesis.cells),locked:state.genesis.locked,revision:state.genesis.revision,palette:state.genesis.palette},
     traits:state.traits.map(t=>({category:t.category,name:t.name,weight:t.weight,allowEmpty:!!t.allowEmpty,revision:t.revision,cells:sparseCells(t.cells),mask:t.mask.map((v,i)=>v?i:-1).filter(i=>i>=0),approved:true}))
   };
 }
 function restoreProject(p){
-  if(!p||p.format!=="APE16_STUDIO_V7")throw new Error("Not an APE16 Studio V7 project.");
+  if(!p||!["APE16_STUDIO_V7","APE16_STUDIO_V8"].includes(p.format))throw new Error("Not a compatible APE16 Studio project.");
 
   state.projectName=p.projectName||"APE16";
   state.supply=Number(p.supply)||3333;
@@ -697,27 +699,56 @@ function restoreProject(p){
     const s=$("recoveryStatus");
     if(s)s.textContent="Autosave restored; no embedded reference image.";
   }
-}function scheduleAutosave(){
-  clearTimeout(state.autosaveTimer);state.autosaveTimer=setTimeout(()=>{
-    state.projectName=$("projectName").value||"APE16";state.supply=Number($("collectionSupply").value)||3333;
-    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(serializeProject(true)));$("recoveryStatus").textContent="Autosaved with references."}
-    catch(e){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(serializeProject(false)));$("recoveryStatus").textContent="Autosaved project state; reference image omitted due to browser storage limit."}catch(_){$("recoveryStatus").textContent="Autosave unavailable; use Save Editable Project."}}
-    setStatus("SAVED","ok");
-  },400);
+}function projectFingerprint(p){
+  const q=JSON.parse(JSON.stringify(p));delete q.savedAt;
+  return JSON.stringify(q);
+}
+function readHistory(){
+  try{const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(h)?h:[]}catch(e){return []}
+}
+function writeAutosaveNow(){
+  state.projectName=$("projectName").value||"APE16";
+  state.supply=Number($("collectionSupply").value)||3333;
+  let p;
+  try{p=serializeProject(true)}
+  catch(e){p=serializeProject(false)}
+  try{
+    const oldRaw=localStorage.getItem(STORAGE_KEY),old=oldRaw?JSON.parse(oldRaw):null;
+    if(old && projectFingerprint(old)!==projectFingerprint(p)){
+      const h=readHistory();h.unshift(old);localStorage.setItem(HISTORY_KEY,JSON.stringify(h.slice(0,5)));
+    }
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(p))}
+    catch(e){p=serializeProject(false);localStorage.setItem(STORAGE_KEY,JSON.stringify(p))}
+    $("recoveryStatus").textContent=p.reference?.dataURL?"Autosave current with reference.":"Autosave current; reference omitted.";
+    $("autosaveStamp").textContent="Autosaved "+new Date(p.savedAt).toLocaleTimeString();
+    setStatus("SAVED","ok");return true;
+  }catch(e){$("recoveryStatus").textContent="Autosave unavailable — use Save Editable Project.";return false}
+}
+function scheduleAutosave(){
+  clearTimeout(state.autosaveTimer);
+  state.autosaveTimer=setTimeout(writeAutosaveNow,700);
 }
 ["projectName","collectionSupply"].forEach(id=>$(id).oninput=scheduleAutosave);
-$("restoreAutosave").onclick=()=>{
-  try{
-    const raw=localStorage.getItem(STORAGE_KEY);
-    if(!raw){$("recoveryStatus").textContent="No local recovery found.";return}
-    restoreProject(JSON.parse(raw));
-  }catch(e){
-    $("recoveryStatus").textContent="Recovery failed safely: "+(e?.message||String(e));
-  }
+
+$("saveSnapshot").onclick=()=>{
+  try{localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(serializeProject(true)));$("recoveryStatus").textContent="Manual snapshot saved exactly."}
+  catch(e){try{localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(serializeProject(false)));$("recoveryStatus").textContent="Manual snapshot saved; reference omitted."}catch(_){$("recoveryStatus").textContent="Snapshot unavailable — use Save Editable Project."}}
 };
-$("clearAutosave").onclick=()=>{localStorage.removeItem(STORAGE_KEY);$("recoveryStatus").textContent="Local recovery cleared."};
-$("exportProjectJson").onclick=()=>downloadBlob(new Blob([JSON.stringify(serializeProject(true),null,2)],{type:"application/json"}),`${safeName(state.projectName)}_V7_project.ape16.json`);
-$("loadProjectJson").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{restoreProject(JSON.parse(r.result));scheduleAutosave()}catch(err){alert(err.message)}};r.readAsText(f)};
+$("restoreSnapshot").onclick=()=>{
+  try{const r=localStorage.getItem(SNAPSHOT_KEY);if(!r){$("recoveryStatus").textContent="No manual snapshot found.";return}restoreProject(JSON.parse(r));$("recoveryStatus").textContent="Manual snapshot restored exactly."}
+  catch(e){$("recoveryStatus").textContent="Snapshot restore failed safely: "+(e?.message||String(e))}
+};
+$("restorePrevious").onclick=()=>{
+  try{const h=readHistory();if(!h.length){$("recoveryStatus").textContent="No previous autosave found.";return}restoreProject(h[0]);$("recoveryStatus").textContent="Previous autosave restored exactly."}
+  catch(e){$("recoveryStatus").textContent="Previous autosave restore failed safely: "+(e?.message||String(e))}
+};
+$("restoreAutosave").onclick=()=>{
+  try{const r=localStorage.getItem(STORAGE_KEY);if(!r){$("recoveryStatus").textContent="No latest autosave found.";return}restoreProject(JSON.parse(r));$("recoveryStatus").textContent="Latest autosave restored exactly."}
+  catch(e){$("recoveryStatus").textContent="Latest autosave restore failed safely: "+(e?.message||String(e))}
+};
+$("clearAutosave").onclick=()=>{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(SNAPSHOT_KEY);localStorage.removeItem(HISTORY_KEY);$("recoveryStatus").textContent="Local recovery cleared.";$("autosaveStamp").textContent="No autosave yet.";};
+$("exportProjectJson").onclick=()=>downloadBlob(new Blob([JSON.stringify(serializeProject(true),null,2)],{type:"application/json"}),`${safeName(state.projectName)}_V8_project.ape16.json`);
+$("loadProjectJson").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{restoreProject(JSON.parse(r.result));writeAutosaveNow()}catch(err){alert(err.message)}};r.readAsText(f)};
 
 function updateExportAudit(enable=true){
   const issues=[];
@@ -840,6 +871,7 @@ function startupCheck(){
   return true;
 }
 
+window.addEventListener("beforeunload",()=>{try{writeAutosaveNow()}catch(e){}});
 startupCheck();
 setPage("setup");
 renderAssetLibrary();
