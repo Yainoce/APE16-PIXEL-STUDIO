@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 
-const VERSION="7.3.0";
+const VERSION="7.4.0";
 const LAYER_ORDER=["Background","Body","Clothing","Mouth","Eyes","Headwear","Accessories"];
 const ANCHOR_RATIOS={
   head:[0.50,0.14],leftEye:[0.41,0.40],rightEye:[0.59,0.40],
@@ -28,7 +28,7 @@ const state={
   reference:{img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false},
   genesis:{cells:[],locked:false,revision:1,palette:["#000000","#5b1908","#8a2c0f","#bd4c18","#f2a534","#ffd078","#ffffff"]},
   history:[],redo:[],
-  tool:"pencil",color:"#000000",showGrid:true,showReference:true,genesisCellSize:10,traitCellSize:10,
+  tool:"pencil",color:"#000000",showGrid:true,showReference:true,genesisCellSize:8,traitCellSize:8,
   traitReference:{img:null,dataURL:null,scale:100,x:0,y:0,opacity:55,locked:false},
   workingTrait:null,
   traitHistory:[],traitRedo:[],traitTool:"pencil",
@@ -283,19 +283,68 @@ function nearestPaletteColor(rgb){
   for(const p of palette){const d=colorDistanceSq(rgb,p);if(d<bestD){bestD=d;best=p}}
   return best.slice();
 }
+function isNeutralLight(rgb){
+  const [r,g,b]=rgb;
+  const hi=Math.max(r,g,b),lo=Math.min(r,g,b);
+  return (hi-lo)<=30 && (r+g+b)/3>=172;
+}
+function buildEdgeBackgroundMask(image,n){
+  const candidate=new Uint8Array(n*n);
+  const bg=new Uint8Array(n*n);
+  for(let p=0;p<n*n;p++){
+    const i=p*4;
+    if(image[i+3]<128){candidate[p]=1;continue;}
+    if(isNeutralLight([image[i],image[i+1],image[i+2]]))candidate[p]=1;
+  }
+
+  const q=[];
+  const push=(x,y)=>{
+    const p=y*n+x;
+    if(candidate[p]&&!bg[p]){bg[p]=1;q.push(p);}
+  };
+  for(let x=0;x<n;x++){push(x,0);push(x,n-1);}
+  for(let y=0;y<n;y++){push(0,y);push(n-1,y);}
+
+  for(let qi=0;qi<q.length;qi++){
+    const p=q[qi],x=p%n,y=Math.floor(p/n);
+    if(x>0)push(x-1,y);
+    if(x<n-1)push(x+1,y);
+    if(y>0)push(x,y-1);
+    if(y<n-1)push(x,y+1);
+  }
+  return bg;
+}
 function traceReferenceToGrid(){
   if(state.genesis.locked){$("traceStatus").textContent="Genesis is locked. Create a revision before retracing.";return false;}
   if(!state.resolutionLocked){$("traceStatus").textContent="Lock the logical resolution before tracing.";return false;}
   if(!state.reference||!state.reference.img){$("traceStatus").textContent="Load the Brown reference before tracing.";return false;}
+
   pushHistory("genesis");
-  const n=state.resolution,tmp=document.createElement("canvas");tmp.width=tmp.height=n;
-  const tx=tmp.getContext("2d",{willReadFrequently:true});tx.clearRect(0,0,n,n);tx.imageSmoothingEnabled=false;
+  const n=state.resolution,tmp=document.createElement("canvas");
+  tmp.width=tmp.height=n;
+  const tx=tmp.getContext("2d",{willReadFrequently:true});
+  tx.clearRect(0,0,n,n);tx.imageSmoothingEnabled=false;
   fitReference(tx,state.reference.img,n,state.reference.scale,state.reference.x,state.reference.y,1);
-  const image=tx.getImageData(0,0,n,n).data,next=makeCells(n);let painted=0;
-  for(let p=0;p<n*n;p++){const i=p*4;if(image[i+3]<128)continue;next[p]=nearestPaletteColor([image[i],image[i+1],image[i+2],255]);painted++;}
+
+  const image=tx.getImageData(0,0,n,n).data;
+  const bgMask=buildEdgeBackgroundMask(image,n);
+  const next=makeCells(n);
+  let painted=0,bgRemoved=0,alphaRemoved=0;
+
+  for(let p=0;p<n*n;p++){
+    const i=p*4;
+    if(bgMask[p]){bgRemoved++;continue;}
+    if(image[i+3]<128){alphaRemoved++;continue;}
+    next[p]=nearestPaletteColor([image[i],image[i+1],image[i+2],255]);
+    painted++;
+  }
+
   state.genesis.cells=next;
-  $("traceStatus").textContent=`TRACE PASS · ${painted} solid logical cells · ${n}×${n} · palette snapped`;
-  drawEditor();scheduleAutosave();return painted>0;
+  const transparent=n*n-painted;
+  $("traceStatus").textContent=`TRACE PASS · ${painted} ape cells · ${transparent} transparent · ${n}×${n} · palette snapped`;
+  $("traceMetrics").textContent=`Edge background removed ${bgRemoved} · alpha removed ${alphaRemoved}`;
+  drawEditor();scheduleAutosave();
+  return painted>0 && painted<n*n;
 }
 
 function floodFill(cells,x,y,newColor){
@@ -334,6 +383,26 @@ $("genesisCellSize").onchange=e=>{
 };
 $("traitCellSize").onchange=e=>{
   state.traitCellSize=Number(e.target.value);
+  drawTraitEditor();
+};
+function bestCellSizeForViewport(viewport){
+  const n=state.resolution;
+  const w=Math.max(320,(viewport?.clientWidth||window.innerWidth)-8);
+  const h=Math.max(320,window.innerHeight*0.64);
+  const raw=Math.floor(Math.min(w,h)/n);
+  const allowed=[4,6,8,10,14];
+  let best=4;
+  for(const v of allowed)if(v<=raw)best=v;
+  return best;
+}
+$("fitGenesisScreen").onclick=()=>{
+  state.genesisCellSize=bestCellSizeForViewport($("genesisViewport"));
+  $("genesisCellSize").value=String(state.genesisCellSize);
+  drawEditor();
+};
+$("fitTraitScreen").onclick=()=>{
+  state.traitCellSize=bestCellSizeForViewport($("traitViewport"));
+  $("traitCellSize").value=String(state.traitCellSize);
   drawTraitEditor();
 };
 
@@ -537,8 +606,8 @@ function restoreProject(p){
   state.supply=Number(p.supply)||3333;
   state.resolution=[32,64,128].includes(Number(p.resolution))?Number(p.resolution):64;
   state.resolutionLocked=!!p.resolutionLocked;
-  state.genesisCellSize=[6,10,14,18].includes(Number(p.genesisCellSize))?Number(p.genesisCellSize):10;
-  state.traitCellSize=[6,10,14,18].includes(Number(p.traitCellSize))?Number(p.traitCellSize):10;
+  state.genesisCellSize=[4,6,8,10,14].includes(Number(p.genesisCellSize))?Number(p.genesisCellSize):8;
+  state.traitCellSize=[4,6,8,10,14].includes(Number(p.traitCellSize))?Number(p.traitCellSize):8;
   if($("genesisCellSize"))$("genesisCellSize").value=String(state.genesisCellSize);
   if($("traitCellSize"))$("traitCellSize").value=String(state.traitCellSize);
 
@@ -756,7 +825,7 @@ if(location.search.includes("selftest=1")){
 }
 
 function exactCellsEqual(a,b){if(!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length)return false;for(let i=0;i<a.length;i++){const x=a[i],y=b[i];if(x===null&&y===null)continue;if(!x||!y||x.length!==y.length)return false;for(let j=0;j<x.length;j++)if(x[j]!==y[j])return false;}return true;}
-window.__APE16_V7_TEST__={state,traceReferenceToGrid,setPage,serializeProject,restoreProject,exactCellsEqual,makeCells,idx,floodFill,hexToRgba};
+window.__APE16_V7_TEST__={state,traceReferenceToGrid,setPage,serializeProject,restoreProject,exactCellsEqual,makeCells,idx,floodFill,hexToRgba,isNeutralLight,buildEdgeBackgroundMask};
 
 function startupCheck(){
   const required=["page-setup","page-genesis","page-traits","page-export","editorCanvas","traitEditorCanvas"];
