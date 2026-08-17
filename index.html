@@ -11,7 +11,7 @@
   <header class="topbar">
     <div>
       <div class="eyebrow">APE16 PRODUCTION</div>
-      <h1>Studio V7.4 · Character + Trait Builder</h1>
+      <h1>Studio V8 · Production Character + Trait Builder</h1>
       <div class="sub">True logical pixels · locked Genesis · generator-ready assets</div>
     </div>
     <div id="saveState" class="pill ok">READY</div>
@@ -281,17 +281,24 @@ metadata/
     </section>
 
     <section class="card recovery">
-      <div>
+      <div class="recoveryText">
         <b>Recovery</b>
-        <span id="recoveryStatus" class="muted">Autosave enabled.</span>
-        <div id="startupStatus" class="statusLine">Startup check pending.</div><div id="chainStatus" class="statusLine">Production-chain check pending.</div>
+        <span id="recoveryStatus" class="muted">Recovery ready.</span>
+        <div id="autosaveStamp" class="statusLine">No autosave yet.</div>
+        <div id="startupStatus" class="statusLine">Startup check pending.</div>
+        <div id="chainStatus" class="statusLine">Production-chain check pending.</div>
       </div>
-      <button id="restoreAutosave">Restore Autosave</button>
+      <div class="recoveryActions">
+        <button id="saveSnapshot">Save Snapshot</button>
+        <button id="restoreSnapshot">Restore Snapshot</button>
+        <button id="restorePrevious">Restore Previous Autosave</button>
+        <button id="restoreAutosave">Restore Latest Autosave</button>
+      </div>
     </section>
 
     <pre id="selftest" class="hidden"></pre>
   </main>
 
-  <script src="app.js?v=7.4.0"></script>
+  <script src="app.js?v=8.0.0"></script>
 </body>
 </html>
