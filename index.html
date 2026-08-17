@@ -1,307 +1,112 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0b0d10">
-  <title>APE16 Studio V7</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<title>APE16 Production Studio</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <div class="eyebrow">APE16 PRODUCTION</div>
-      <h1>Studio V9 · Trait Production Builder</h1>
-      <div class="sub">True logical pixels · locked Genesis · generator-ready assets</div>
-    </div>
-    <div id="saveState" class="pill ok">READY</div>
-  </header>
+<header>
+  <div><small>APE16 PRODUCTION</small><h1>APE16 Production Studio</h1>
+  <p>iPad-first asset pipeline · 64×64 canonical grid · 3,333 supply</p></div>
+  <span id="status" class="pill">READY</span>
+</header>
 
-  <main>
-    <section class="card hero">
-      <div class="flow">
-        <button class="flowStep active" data-page="setup">1 · Project</button>
-        <button class="flowStep" data-page="genesis">2 · Genesis</button>
-        <button class="flowStep" data-page="traits">3 · Traits</button>
-        <button class="flowStep" data-page="export">4 · Export</button>
-      </div>
-      <div class="hardRules">
-        <span>✓ one logical cell = one solid RGBA color</span>
-        <span>✓ no anti-aliasing</span>
-        <span>✓ fixed origin</span>
-        <span>✓ exact 4K integer scale</span>
-        <span>✓ Genesis cannot drift</span>
-      </div>
-    </section>
+<nav>
+<button data-page="project" class="active">1 · Project</button>
+<button data-page="genesis">2 · Genesis</button>
+<button data-page="traits">3 · Traits</button>
+<button data-page="rules">4 · Rules</button>
+<button data-page="generate">5 · Generate</button>
+<button data-page="export">6 · Export</button>
+</nav>
 
-    <section id="page-setup" class="page">
-      <div class="card">
-        <h2>1. Project + Grid Standard</h2>
-        <p class="muted">Choose the logical resolution once. Only resolutions that scale exactly into 4096×4096 are offered.</p>
-        <div class="grid2">
-          <label>Project name<input id="projectName" value="APE16"></label>
-          <label>Collection supply<input id="collectionSupply" type="number" min="1" value="3333"></label>
-        </div>
+<main>
+<section id="project" class="page active">
+<h2>Project</h2>
+<div class="card grid2">
+<label>Project name<input id="projectName" value="APE16"></label>
+<label>Supply<input id="supply" type="number" value="3333" min="1"></label>
+<label>Logical resolution<input value="64 × 64" disabled></label>
+<label>Final render<input value="4096 × 4096 (64× nearest)" disabled></label>
+</div>
+<div class="card">
+<h3>Layer order</h3><p>Background → Body → Clothing → Mouth → Eyes → Headwear → Accessories</p>
+<p class="ok">Genesis origin is fixed. Imported traits never reposition Genesis.</p>
+</div>
+<div class="actions">
+<button id="saveProject">Save Editable Project</button>
+<label class="filebtn">Load Editable Project<input id="loadProject" type="file" accept=".json,application/json"></label>
+</div>
+</section>
 
-        <h3>Reference</h3>
-        <div class="row wrap">
-          <button id="loadBuiltInRef">Load Approved Brown Reference</button>
-          <label class="fileBtn">Choose Reference<input id="referenceFile" type="file" accept="image/*"></label>
-          <span id="refStatus" class="muted">No reference loaded.</span>
-        </div>
+<section id="genesis" class="page">
+<h2>Brown Genesis</h2>
+<div class="card">
+<p>The included Brown Genesis is the canonical 64×64 production asset. No partial alpha, no anti-aliasing, no subpixel placement.</p>
+<div class="preview checker"><canvas id="genesisCanvas" width="64" height="64"></canvas></div>
+<pre id="genesisReport"></pre>
+</div>
+<div class="actions"><button id="auditGenesis">Audit Genesis</button><button id="lockGenesis">Approve + Lock Genesis</button></div>
+</section>
 
-        <h3>Resolution Comparison</h3>
-        <p class="muted">These previews are only for choosing the logical grid. They do not create artwork.</p>
-        <div id="resolutionPreviews" class="resolutionPreviews">
-          <button class="resCard" data-res="32"><canvas width="192" height="192"></canvas><b>32×32</b><small>4K scale ×128</small></button>
-          <button class="resCard selected" data-res="64"><canvas width="192" height="192"></canvas><b>64×64</b><small>4K scale ×64</small></button>
-          <button class="resCard" data-res="128"><canvas width="192" height="192"></canvas><b>128×128</b><small>4K scale ×32</small></button>
-        </div>
-        <div class="row wrap">
-          <button id="lockResolution" class="primary">Lock Resolution</button>
-          <span id="resolutionStatus" class="statusLine">Selected: 64×64</span>
-        </div>
+<section id="traits" class="page">
+<h2>Trait Importer</h2>
+<div class="card grid2">
+<label>Category<select id="category"></select></label>
+<label>Trait name<input id="traitName" placeholder="Orange Bucket Hat"></label>
+<label>Rarity weight<input id="weight" type="number" value="1" min="0" step="0.01"></label>
+<label class="check"><input id="noneTrait" type="checkbox"> Intentional None trait</label>
+</div>
+<div class="card">
+<p><b>Production rule:</b> import a transparent PNG already aligned to the same square character canvas. The studio converts it to the exact 64×64 logical grid, snaps alpha to 0/255, and rejects contaminated assets.</p>
+<div class="actions">
+<label class="filebtn">Choose Trait PNG<input id="traitFile" type="file" accept="image/png"></label>
+<label class="filebtn">Optional Occlusion Mask PNG<input id="maskFile" type="file" accept="image/png"></label>
+</div>
+<div id="traitStatus">No trait loaded.</div>
+<div class="compare">
+<div><b>Trait only</b><div class="preview checker"><canvas id="traitCanvas" width="64" height="64"></canvas></div></div>
+<div><b>Final composite</b><div class="preview checker"><canvas id="compositeCanvas" width="64" height="64"></canvas></div></div>
+</div>
+<pre id="traitReport"></pre>
+</div>
+<div class="actions"><button id="validateTrait">Validate Trait</button><button id="approveTrait" disabled>Approve + Lock Trait</button></div>
+<div class="card"><h3>Approved Asset Library</h3><div id="assetLibrary"></div></div>
+</section>
 
-        <details class="advanced">
-          <summary>Reference Calibration</summary>
-          <div class="grid2 compact">
-            <label>Scale <input id="refScale" type="range" min="50" max="150" value="100"><span id="refScaleOut">100%</span></label>
-            <label>Opacity <input id="refOpacity" type="range" min="0" max="100" value="55"><span id="refOpacityOut">55%</span></label>
-            <label>X offset <input id="refX" type="range" min="-64" max="64" value="0"><span id="refXOut">0</span></label>
-            <label>Y offset <input id="refY" type="range" min="-64" max="64" value="0"><span id="refYOut">0</span></label>
-          </div>
-          <div class="row wrap">
-            <button id="lockReference">Lock Reference Placement</button>
-            <button id="unlockReference" disabled>Unlock Reference</button>
-            <span id="referenceLockStatus" class="statusLine">Reference unlocked</span>
-          </div>
-        </details>
-      </div>
-    </section>
+<section id="rules" class="page">
+<h2>Combination Rules</h2>
+<div class="card">
+<p>Add pairwise conflicts only when two approved traits must never appear together.</p>
+<div class="grid2"><label>Trait A<select id="ruleA"></select></label><label>Trait B<select id="ruleB"></select></label></div>
+<div class="actions"><button id="addConflict">Add Conflict</button></div>
+<div id="rulesList"></div>
+</div>
+</section>
 
-    <section id="page-genesis" class="page hidden">
-      <div class="card">
-        <div class="sectionHead">
-          <div>
-            <h2>2. Brown Genesis Builder</h2>
-            <p class="muted">Build directly on the locked logical grid. The reference is a real tracing guide under the grid.</p>
-          </div>
-          <div id="genesisLockBadge" class="pill warn">WORKING</div>
-        </div>
+<section id="generate" class="page">
+<h2>Collection Generator</h2>
+<div class="card">
+<label>Seed<input id="seed" value="APE16-GENESIS-3333"></label>
+<div class="actions"><button id="previewGenerate">Generate 24 Preview Combinations</button><button id="planFull">Plan Full 3,333</button></div>
+<pre id="generateReport"></pre>
+<div id="comboPreview" class="thumbs"></div>
+</div>
+</section>
 
-        <div class="editorLayout">
-          <div>
-            <div class="toolbar">
-              <button data-tool="pencil" class="tool active">Pencil</button>
-              <button id="traceReferenceAll" type="button">Trace Reference to Grid</button>
-              <button data-tool="eraser" class="tool">Eraser</button>
-              <button data-tool="fill" class="tool">Fill</button>
-              <button data-tool="eyedropper" class="tool">Eyedropper</button>
-              <button id="undoBtn">Undo</button>
-              <button id="redoBtn">Redo</button>
-              <button id="toggleGrid">Grid ON</button>
-              <button id="toggleReference">Reference ON</button>
-              <label class="zoomControl">Cell Size
-                <select id="genesisCellSize">
-                  <option value="4">4 px</option>
-                  <option value="6">6 px</option>
-                  <option value="8" selected>8 px</option>
-                  <option value="10">10 px</option>
-                  <option value="14">14 px</option>
-                </select>
-              </label>
-              <button id="fitGenesisScreen">Fit Screen</button>
-            </div>
-
-            <div class="canvasViewport" id="genesisViewport">
-              <div class="canvasShell logicalShell" id="genesisCanvasShell">
-                <canvas id="editorCanvas"></canvas>
-              </div>
-            </div>
-            <div id="cursorInfo" class="statusLine">x: — y: —</div>
-          </div>
-
-          <aside>
-            <h3>Color</h3>
-            <input id="colorPicker" type="color" value="#000000">
-            <div id="palette" class="palette"></div>
-            <button id="addPaletteColor">Add Color</button>
-
-            <h3>Genesis validation</h3>
-            <div id="traceStatus" class="statusLine">Reference not traced yet.</div><div id="traceMetrics" class="statusLine">Edge-connected background removal ready.</div>
-            <div id="genesisValidation" class="validation">Not validated.</div>
-            <div class="stack">
-              <button id="validateGenesis">Validate Genesis</button>
-              <button id="approveGenesis" class="primary">Approve + Lock Genesis</button>
-              <button id="createGenesisRevision" disabled>Create Genesis Revision</button>
-              <button id="exportGenesisLogical">Export Logical PNG</button>
-              <button id="exportGenesis4k">Export 4096 PNG</button>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </section>
-
-    <section id="page-traits" class="page hidden">
-      <div class="card">
-        <div class="sectionHead">
-          <div>
-            <h2>3. Trait Builder</h2>
-            <p class="muted">Every trait is created natively on the same locked grid. Reference images guide you; they never alter Genesis.</p>
-          </div>
-          <div id="traitCountBadge" class="pill">0 APPROVED</div>
-        </div>
-
-        <div class="traitSetup">
-          <label>Category
-            <select id="traitCategory">
-              <option>Background</option>
-              <option>Body</option>
-              <option>Clothing</option>
-              <option>Mouth</option>
-              <option>Eyes</option>
-              <option selected>Headwear</option>
-              <option>Accessories</option>
-            </select>
-          </label>
-          <label>Trait name<input id="traitName" placeholder="Orange Bucket Hat"></label>
-          <label>Rarity weight<input id="traitWeight" type="number" min="0.0001" step="0.1" value="1"></label>
-          <label class="reviewCheck"><input id="allowEmptyTrait" type="checkbox"> Intentional empty / None trait</label>
-          <button id="newTrait" class="primary">New Trait</button>
-          <label class="fileBtn">Load Trait Reference<input id="traitReferenceFile" type="file" accept="image/*"></label>
-          <span id="traitReferenceStatus" class="statusLine">No trait reference loaded.</span>
-        </div>
-
-        <div class="editorLayout">
-          <div>
-            <div class="toolbar">
-              <button id="toggleTraitReference">Trait Reference ON</button>
-              <button data-trait-tool="pencil" class="traitTool active">Pencil</button>
-              <button data-trait-tool="trace" class="traitTool">Trace Ref</button>
-              <button data-trait-tool="eraser" class="traitTool">Eraser</button>
-              <button data-trait-tool="fill" class="traitTool">Fill</button>
-              <button data-trait-tool="eyedropper" class="traitTool">Eyedropper</button>
-              <button data-trait-tool="mask" class="traitTool">Mask</button>
-              <button data-trait-tool="unmask" class="traitTool">Unmask</button>
-              <button id="traitUndo">Undo</button>
-              <button id="traitRedo">Redo</button>
-              <label class="zoomControl">Cell Size
-                <select id="traitCellSize">
-                  <option value="4">4 px</option>
-                  <option value="6">6 px</option>
-                  <option value="8" selected>8 px</option>
-                  <option value="10">10 px</option>
-                  <option value="14">14 px</option>
-                </select>
-              </label>
-              <button id="fitTraitScreen">Fit Screen</button>
-            </div>
-            <div class="canvasViewport" id="traitViewport">
-              <div class="canvasShell logicalShell" id="traitCanvasShell">
-                <canvas id="traitEditorCanvas"></canvas>
-              </div>
-            </div>
-            <div id="traitCursorInfo" class="statusLine">x: — y: —</div>
-          </div>
-
-          <aside>
-            <h3>Live Review</h3>
-            <div class="previewPair">
-              <div><b>Trait Only</b><canvas id="traitOnlyPreview" width="256" height="256"></canvas></div>
-              <div><b>Final Composite</b><canvas id="compositePreview" width="256" height="256"></canvas></div>
-            </div>
-            <div id="traitGridInfo" class="statusLine">Trait grid pending.</div>
-            <div id="traitValidation" class="validation">Create or load a trait.</div>
-            <label class="reviewCheck"><input id="reviewConfirmed" type="checkbox"> I reviewed the final composite and the trait fits correctly.</label>
-            <div class="stack">
-              <button id="validateTrait">Validate Trait</button>
-              <button id="approveTrait" class="primary" disabled>Approve + Lock Trait</button>
-              <button id="exportTraitLogical" disabled>Export Logical Trait</button>
-              <button id="exportTrait4k" disabled>Export 4096 Trait</button>
-              <button id="nextTrait" disabled>Next Trait</button>
-            </div>
-          </aside>
-        </div>
-
-        <details class="advanced">
-          <summary>Advanced Trait Controls</summary>
-          <p class="muted">The trait reference is a real tracing underlay. Align it to the locked Genesis grid, then lock its placement. Masks hide Genesis cells during composite/generation; mask cells are never visible artwork.</p>
-          <div class="grid2 compact">
-            <label>Trait reference scale <input id="traitRefScale" type="range" min="50" max="150" value="100"><span id="traitRefScaleOut">100%</span></label>
-            <label>Trait reference opacity <input id="traitRefOpacity" type="range" min="0" max="100" value="55"><span id="traitRefOpacityOut">55%</span></label>
-            <label>Trait reference X <input id="traitRefX" type="range" min="-64" max="64" value="0"><span id="traitRefXOut">0</span></label>
-            <label>Trait reference Y <input id="traitRefY" type="range" min="-64" max="64" value="0"><span id="traitRefYOut">0</span></label>
-          </div>
-          <div class="row wrap">
-            <button id="lockTraitReference">Lock Trait Reference</button>
-            <button id="unlockTraitReference" disabled>Unlock Trait Reference</button>
-            <span id="traitRefLockStatus" class="statusLine">Trait reference unlocked</span>
-          </div>
-          <div class="row wrap">
-            <button id="maskFromTrait">Mask Under Trait</button>
-            <button id="clearMask">Clear Mask</button>
-            <button id="clearTrait">Clear Trait Artwork</button>
-          </div>
-        </details>
-
-        <h3>Approved Asset Library</h3>
-        <div class="assetRow assetHeader"><b>Category</b><b>Trait</b><b>Weight</b><b>Revision</b><b>Actions</b></div><div id="assetLibrary" class="assetLibrary"></div>
-      </div>
-    </section>
-
-    <section id="page-export" class="page hidden">
-      <div class="card">
-        <h2>4. Generator Handoff</h2>
-        <p class="muted">V7 automatically uses category folders in generator layer order. Every PNG has the same logical dimensions and origin.</p>
-
-        <div class="layerOrder">
-          <span>1 Background</span><span>2 Body</span><span>3 Clothing</span><span>4 Mouth</span><span>5 Eyes</span><span>6 Headwear</span><span>7 Accessories</span>
-        </div>
-
-        <div id="exportAudit" class="validation">Run audit before export.</div>
-        <div class="row wrap">
-          <button id="runProjectAudit">Run Project Audit</button>
-          <button id="exportGeneratorZip" class="primary" disabled>Export Generator-Ready ZIP</button>
-          <button id="exportProjectJson">Save Editable Project</button>
-          <label class="fileBtn">Load Editable Project<input id="loadProjectJson" type="file" accept=".json,application/json"></label>
-          <button id="clearAutosave" class="danger">Clear Local Recovery</button>
-        </div>
-
-        <h3>Package Structure</h3>
-        <pre class="tree">Background/
-Body/
-  Brown_Genesis.png
-Clothing/
-Mouth/
-Eyes/
-Headwear/
-Accessories/
-masks/
-metadata/
-  project_manifest.json
-  traits.json</pre>
-      </div>
-    </section>
-
-    <section class="card recovery">
-      <div class="recoveryText">
-        <b>Recovery</b>
-        <span id="recoveryStatus" class="muted">Recovery ready.</span>
-        <div id="autosaveStamp" class="statusLine">No autosave yet.</div>
-        <div id="startupStatus" class="statusLine">Startup check pending.</div>
-        <div id="chainStatus" class="statusLine">Production-chain check pending.</div>
-      </div>
-      <div class="recoveryActions">
-        <button id="saveSnapshot">Save Snapshot</button>
-        <button id="restoreSnapshot">Restore Snapshot</button>
-        <button id="restorePrevious">Restore Previous Autosave</button>
-        <button id="restoreAutosave">Restore Latest Autosave</button>
-      </div>
-    </section>
-
-    <pre id="selftest" class="hidden"></pre>
-  </main>
-
-  <script src="app.js?v=9.0.0"></script>
-</body>
-</html>
+<section id="export" class="page">
+<h2>Audit + Export</h2>
+<div class="card"><button id="runAudit">Run Full Project Audit</button><pre id="auditReport"></pre></div>
+<div class="actions">
+<button id="exportAssets" disabled>Export Generator Asset ZIP</button>
+<button id="exportPlan" disabled>Export 3,333 Metadata + Combination Plan ZIP</button>
+</div>
+<p class="muted">The asset ZIP is the production source of truth. The plan ZIP contains deterministic combinations and metadata. Final 4096 PNG rendering can be done from these exact 64×64 layers without resampling drift.</p>
+</section>
+</main>
+<footer><span id="selftest">SELFTEST: pending</span> · APE16 Studio 1.0</footer>
+<script src="app.js"></script>
+</body></html>
