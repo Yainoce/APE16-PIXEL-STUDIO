@@ -11,7 +11,7 @@
   <header class="topbar">
     <div>
       <div class="eyebrow">APE16 PRODUCTION</div>
-      <h1>Studio V8 · Production Character + Trait Builder</h1>
+      <h1>Studio V9 · Trait Production Builder</h1>
       <div class="sub">True logical pixels · locked Genesis · generator-ready assets</div>
     </div>
     <div id="saveState" class="pill ok">READY</div>
@@ -169,11 +169,13 @@
           <label class="reviewCheck"><input id="allowEmptyTrait" type="checkbox"> Intentional empty / None trait</label>
           <button id="newTrait" class="primary">New Trait</button>
           <label class="fileBtn">Load Trait Reference<input id="traitReferenceFile" type="file" accept="image/*"></label>
+          <span id="traitReferenceStatus" class="statusLine">No trait reference loaded.</span>
         </div>
 
         <div class="editorLayout">
           <div>
             <div class="toolbar">
+              <button id="toggleTraitReference">Trait Reference ON</button>
               <button data-trait-tool="pencil" class="traitTool active">Pencil</button>
               <button data-trait-tool="trace" class="traitTool">Trace Ref</button>
               <button data-trait-tool="eraser" class="traitTool">Eraser</button>
@@ -208,6 +210,7 @@
               <div><b>Trait Only</b><canvas id="traitOnlyPreview" width="256" height="256"></canvas></div>
               <div><b>Final Composite</b><canvas id="compositePreview" width="256" height="256"></canvas></div>
             </div>
+            <div id="traitGridInfo" class="statusLine">Trait grid pending.</div>
             <div id="traitValidation" class="validation">Create or load a trait.</div>
             <label class="reviewCheck"><input id="reviewConfirmed" type="checkbox"> I reviewed the final composite and the trait fits correctly.</label>
             <div class="stack">
@@ -299,6 +302,6 @@ metadata/
     <pre id="selftest" class="hidden"></pre>
   </main>
 
-  <script src="app.js?v=8.0.0"></script>
+  <script src="app.js?v=9.0.0"></script>
 </body>
 </html>
