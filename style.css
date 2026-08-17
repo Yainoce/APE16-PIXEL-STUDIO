@@ -123,3 +123,6 @@ background-size:12px 12px;background-position:0 0,0 6px,6px -6px,-6px 0;backgrou
 .recovery{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
 .recoveryText{min-width:240px;flex:1}.recoveryActions{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:760px){.recovery{align-items:stretch}.recoveryActions{width:100%}.recoveryActions button{flex:1 1 44%}}
+/* V9 trait production */
+#traitReferenceStatus,#traitGridInfo{display:block;margin-top:5px}
+#toggleTraitReference{white-space:nowrap}
