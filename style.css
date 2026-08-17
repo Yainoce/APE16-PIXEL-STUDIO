@@ -104,3 +104,19 @@ background-size:12px 12px;background-position:0 0,0 6px,6px -6px,-6px 0;backgrou
   color:var(--muted);
 }
 .zoomControl select{padding:7px 8px}
+
+/* V7.4 iPad production layout */
+.topbar,main,.card,.editorLayout,.canvasViewport{min-width:0}
+.toolbar{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.toolbar>*{flex:0 0 auto}
+.canvasViewport{max-width:100%;max-height:68vh;overscroll-behavior:contain}
+.editorLayout aside{min-width:0}
+@media(max-width:900px){
+  .topbar{position:static}
+  .editorLayout{grid-template-columns:1fr}
+  .canvasViewport{max-height:64vh}
+}
+@media(max-width:640px){
+  .previewPair{grid-template-columns:1fr}
+  button,.fileBtn{padding:8px 10px}
+}
